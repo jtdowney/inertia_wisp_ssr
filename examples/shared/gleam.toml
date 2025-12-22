@@ -1,0 +1,9 @@
+name = "shared"
+version = "0.1.0"
+
+description = "Shared utilities for example applications"
+
+[dependencies]
+gleam_stdlib = ">= 0.60.0"
+gleam_json = ">= 3.0.0 and < 4.0.0"
+simplifile = ">= 2.0.0 and < 3.0.0"
