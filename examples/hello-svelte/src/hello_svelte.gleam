@@ -2,7 +2,7 @@ import gleam/erlang/process
 import gleam/otp/static_supervisor as supervisor
 import hello_svelte/router
 import hello_svelte/web
-import inertia_wisp_ssr.{SsrConfig}
+import inertia_wisp_ssr
 import mist
 import shared/vite
 import wisp
@@ -14,13 +14,7 @@ pub fn main() {
   let assert Ok(priv) = wisp.priv_directory("hello_svelte")
   let static_directory = priv <> "/static"
 
-  let config =
-    SsrConfig(
-      name: inertia_wisp_ssr.pool_name("hello_svelte_ssr"),
-      module_path: priv <> "/ssr/ssr.js",
-      pool_size: 4,
-      timeout: 5000,
-    )
+  let config = inertia_wisp_ssr.default_config()
   let assert Ok(_) =
     supervisor.new(supervisor.OneForOne)
     |> supervisor.add(inertia_wisp_ssr.child_spec(config))

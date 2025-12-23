@@ -79,14 +79,12 @@
 //// }
 //// ```
 
-import bath
-import gleam/erlang/process
+import gleam/erlang/atom.{type Atom}
 import gleam/json
 import gleam/otp/supervision.{type ChildSpecification}
-import gleam/result
 import inertia_wisp/html
+import inertia_wisp_ssr/internal/pool
 import inertia_wisp_ssr/internal/protocol.{SsrRenderError, SsrSuccess}
-import inertia_wisp_ssr/internal/worker.{type Worker}
 import logging
 
 /// Page layout function that receives SSR head elements and body content.
@@ -95,55 +93,35 @@ import logging
 pub type PageLayout =
   fn(List(String), String) -> String
 
-/// Name for the SSR pool process.
-/// Create with `pool_name()` and use the same name in both config and lookups.
-pub opaque type PoolName {
-  PoolName(inner: process.Name(bath.Msg(Worker)))
-}
-
-/// Create a pool name from a string.
-///
-/// **Important:** Call this function once and reuse the returned `PoolName`.
-/// Each call generates a unique process name, so the same string called twice
-/// will produce different pool references.
-pub fn pool_name(name: String) -> PoolName {
-  PoolName(process.new_name(name))
-}
-
 /// Configuration for starting the SSR pool.
 pub type SsrConfig {
   SsrConfig(
     /// Name for the pool process (for supervised lookup)
-    name: PoolName,
+    name: Atom,
     /// Path to the SSR JavaScript module (e.g., "priv/ssr/ssr.js")
     module_path: String,
     /// Number of Node.js worker processes (default: 4)
     pool_size: Int,
+    /// Maximum overflow workers for burst traffic (default: 2)
+    max_overflow: Int,
     /// Render timeout in milliseconds (default: 5000)
     timeout: Int,
   )
 }
 
 /// Create a default SSR configuration.
-/// Uses default pool name, "priv/ssr/ssr.js" as module path, 4 workers, and 5000ms timeout.
-///
-/// **Important:** Call this function once and reuse the returned config.
-/// Each call generates a unique pool name, so calling it multiple times
-/// will result in mismatched pool references and SSR will silently fall back to CSR.
+/// Uses default pool name, "priv/ssr/ssr.js" as module path, 4 workers,
+/// 2 overflow workers, and 5000ms timeout.
 ///
 /// ```gleam
-/// // Correct: define once, reuse everywhere
 /// const config = inertia_wisp_ssr.default_config()
-///
-/// // Wrong: different configs won't find each other
-/// let spec = child_spec(default_config())  // pool A
-/// let layout = make_layout(default_config())  // looks for pool B!
 /// ```
 pub fn default_config() -> SsrConfig {
   SsrConfig(
-    name: pool_name("inertia_wisp_ssr"),
+    name: atom.create("inertia_wisp_ssr"),
     module_path: "priv/ssr/ssr.js",
     pool_size: 4,
+    max_overflow: 2,
     timeout: 5000,
   )
 }
@@ -167,12 +145,12 @@ pub fn default_config() -> SsrConfig {
 /// }
 /// ```
 pub fn child_spec(config: SsrConfig) -> ChildSpecification(Nil) {
-  let PoolName(name) = config.name
-  bath.new(fn() { worker.start(config.module_path) })
-  |> bath.size(config.pool_size)
-  |> bath.name(name)
-  |> bath.on_shutdown(fn(w) { worker.stop(w) })
-  |> bath.supervised_map(fn(_) { Nil }, 5000)
+  pool.child_spec(
+    config.name,
+    config.module_path,
+    config.pool_size,
+    config.max_overflow,
+  )
 }
 
 /// Wrap a template function to enable server-side rendering.
@@ -253,23 +231,15 @@ fn render(
   config: SsrConfig,
   page_data: json.Json,
 ) -> Result(protocol.SsrResult, String) {
-  let PoolName(name) = config.name
-  let pool = process.named_subject(name)
-  case process.subject_owner(pool) {
-    Error(Nil) -> Error("SSR pool not started")
-    Ok(_) ->
-      bath.apply(pool, config.timeout, fn(w) {
-        bath.returning(bath.keep(), worker.call(w, page_data, config.timeout))
-      })
-      |> result.map_error(bath_error_to_string)
-      |> result.flatten
-  }
-}
-
-fn bath_error_to_string(err: bath.ApplyError) -> String {
-  case err {
-    bath.NoResourcesAvailable -> "no workers available"
-    bath.CheckOutResourceCreateError(reason) -> reason
+  case pool.render(config.name, page_data, config.timeout) {
+    Ok(result) -> Ok(result)
+    Error(pool.CheckoutTimeout) -> Error("checkout timeout - all workers busy")
+    Error(pool.RenderTimeout) -> Error("render timeout - worker too slow")
+    Error(pool.PoolNotStarted) -> Error("SSR pool not started")
+    Error(pool.WorkerCrashed) -> Error("worker crashed")
+    Error(pool.WorkerTimeout) -> Error("worker timeout")
+    Error(pool.PoolError) -> Error("pool error")
+    Error(pool.WorkerError(reason)) -> Error(reason)
   }
 }
 

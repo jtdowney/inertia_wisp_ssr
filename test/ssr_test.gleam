@@ -1,3 +1,4 @@
+import gleam/erlang/atom
 import gleam/erlang/process
 import gleam/json
 import gleam/string
@@ -71,20 +72,23 @@ pub fn default_config_values_test() {
 
   config.module_path |> should.equal("priv/ssr/ssr.js")
   config.pool_size |> should.equal(4)
+  config.max_overflow |> should.equal(2)
   config.timeout |> should.equal(5000)
 }
 
 pub fn custom_config_test() {
   let config =
     inertia_wisp_ssr.SsrConfig(
-      name: inertia_wisp_ssr.pool_name("custom_test"),
+      name: atom.create("custom_test"),
       module_path: "build/ssr.js",
       pool_size: 8,
+      max_overflow: 4,
       timeout: 10_000,
     )
 
   config.module_path |> should.equal("build/ssr.js")
   config.pool_size |> should.equal(8)
+  config.max_overflow |> should.equal(4)
   config.timeout |> should.equal(10_000)
 }
 
@@ -136,9 +140,10 @@ pub fn worker_handles_error_test() {
 pub fn pool_renders_ssr_test() {
   let config =
     inertia_wisp_ssr.SsrConfig(
-      name: inertia_wisp_ssr.pool_name("pool_renders_ssr_test"),
+      name: atom.create("pool_renders_ssr_test"),
       module_path: "test/fixtures/ssr.js",
       pool_size: 2,
+      max_overflow: 0,
       timeout: 5000,
     )
 
@@ -174,9 +179,10 @@ pub fn pool_renders_ssr_test() {
 pub fn make_layout_renders_ssr_test() {
   let config =
     inertia_wisp_ssr.SsrConfig(
-      name: inertia_wisp_ssr.pool_name("make_layout_renders_ssr_test"),
+      name: atom.create("make_layout_renders_ssr_test"),
       module_path: "test/fixtures/ssr.js",
       pool_size: 2,
+      max_overflow: 0,
       timeout: 5000,
     )
 
@@ -214,11 +220,12 @@ pub fn make_layout_renders_ssr_test() {
 pub fn layout_fallback_contains_data_page_test() {
   let config =
     inertia_wisp_ssr.SsrConfig(
-      name: inertia_wisp_ssr.pool_name(
+      name: atom.create(
         "layout_fallback_contains_data_page_test",
       ),
       module_path: "test/fixtures/malformed.js",
       pool_size: 1,
+      max_overflow: 0,
       timeout: 5000,
     )
 
@@ -243,9 +250,10 @@ pub fn layout_fallback_contains_data_page_test() {
 pub fn layout_fallback_escapes_json_test() {
   let config =
     inertia_wisp_ssr.SsrConfig(
-      name: inertia_wisp_ssr.pool_name("layout_fallback_escapes_json_test"),
+      name: atom.create("layout_fallback_escapes_json_test"),
       module_path: "test/fixtures/malformed.js",
       pool_size: 1,
+      max_overflow: 0,
       timeout: 5000,
     )
 
@@ -268,9 +276,10 @@ pub fn layout_fallback_escapes_json_test() {
 pub fn layout_fallback_empty_head_test() {
   let config =
     inertia_wisp_ssr.SsrConfig(
-      name: inertia_wisp_ssr.pool_name("layout_fallback_empty_head_test"),
+      name: atom.create("layout_fallback_empty_head_test"),
       module_path: "test/fixtures/malformed.js",
       pool_size: 1,
+      max_overflow: 0,
       timeout: 5000,
     )
 
@@ -291,4 +300,22 @@ pub fn layout_fallback_empty_head_test() {
   result |> should.equal("empty")
 
   process.send_exit(started.pid)
+}
+
+pub fn pool_not_started_returns_error_test() {
+  let config =
+    inertia_wisp_ssr.SsrConfig(
+      name: atom.create("nonexistent_pool_test"),
+      module_path: "test/fixtures/ssr.js",
+      pool_size: 1,
+      max_overflow: 0,
+      timeout: 100,
+    )
+
+  let template = fn(_head: List(String), body: String) -> String { body }
+  let layout_fn = inertia_wisp_ssr.layout(config, template)
+  let page_data = json.object([#("test", json.string("data"))])
+  let result = layout_fn("Test", page_data)
+
+  string.contains(result, "data-page=") |> should.equal(True)
 }

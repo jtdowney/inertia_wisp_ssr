@@ -14,13 +14,7 @@ pub fn main() {
   let assert Ok(priv) = wisp.priv_directory("hello_react")
   let static_directory = priv <> "/static"
 
-  let config =
-    inertia_wisp_ssr.SsrConfig(
-      name: inertia_wisp_ssr.pool_name("hello_react_ssr"),
-      module_path: priv <> "/ssr/ssr.js",
-      pool_size: 4,
-      timeout: 5000,
-    )
+  let config = inertia_wisp_ssr.default_config()
   let assert Ok(_) =
     supervisor.new(supervisor.OneForOne)
     |> supervisor.add(inertia_wisp_ssr.child_spec(config))
