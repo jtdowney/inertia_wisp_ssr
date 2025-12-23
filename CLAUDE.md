@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Gleam library providing server-side rendering (SSR) for Inertia.js applications via `inertia_wisp`. Uses a pool of Node.js worker processes managed by the `bath` pooling library with automatic CSR fallback on failure.
+Gleam library providing server-side rendering (SSR) for Inertia.js applications via `inertia_wisp`. Uses a pool of Node.js worker processes managed by the `poolboy` pooling library with automatic CSR fallback on failure.
 
 ## Build Commands
 
@@ -34,7 +34,7 @@ inertia.response() with layout(template) from make_layout(config)
 - `src/inertia_wisp_ssr/internal/protocol.gleam` — NDJSON protocol encoding/decoding with ISSR prefix
 - `priv/ssr-server.cjs` — Node.js server script that loads user's render module
 
-**Architecture:** Gleam OTP actors → `child_process` package → Node.js processes, pooled via `bath`
+**Architecture:** Gleam OTP actors → `child_process` package → Node.js processes, pooled via `poolboy`
 
 **Startup:** Use `inertia_wisp_ssr.child_spec(config)` which returns `ChildSpecification(Nil)` for adding to your supervision tree.
 
@@ -42,7 +42,7 @@ inertia.response() with layout(template) from make_layout(config)
 
 Pure Gleam implementation - no Elixir runtime required. Uses:
 - `child_process` — Spawning and communicating with Node.js processes
-- `bath` — Resource pooling with blocking checkout
+- `poolboy` — Resource pooling with blocking checkout
 
 **Important:** Set `NODE_ENV=production` so the SSR script caches the render module in memory. Without this, the module is reloaded on each request (useful for development hot-reload).
 
