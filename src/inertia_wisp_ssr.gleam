@@ -104,7 +104,9 @@ pub type SsrConfig {
     pool_size: Int,
     /// Maximum overflow workers for burst traffic (default: 2)
     max_overflow: Int,
-    /// Render timeout in milliseconds (default: 5000)
+    /// Timeout in milliseconds for pool operations (default: 5000).
+    /// Applied to both waiting for an available worker and the render
+    /// call. Total wait time may be up to 2x this value under load.
     timeout: Int,
   )
 }

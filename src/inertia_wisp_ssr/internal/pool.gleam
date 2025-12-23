@@ -97,5 +97,11 @@ fn atom_to_pool_error(error_atom: Atom) -> PoolError {
 }
 
 fn worker_error_decoder() -> decode.Decoder(String) {
-  decode.at([1], decode.string)
+  let worker_error_atom = atom.create("worker_error")
+  use tag <- decode.field(0, atom.decoder())
+  use reason <- decode.field(1, decode.string)
+  case tag == worker_error_atom {
+    True -> decode.success(reason)
+    False -> decode.failure(reason, "Expected 'worker_error' tag")
+  }
 }

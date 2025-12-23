@@ -220,9 +220,7 @@ pub fn make_layout_renders_ssr_test() {
 pub fn layout_fallback_contains_data_page_test() {
   let config =
     inertia_wisp_ssr.SsrConfig(
-      name: atom.create(
-        "layout_fallback_contains_data_page_test",
-      ),
+      name: atom.create("layout_fallback_contains_data_page_test"),
       module_path: "test/fixtures/malformed.js",
       pool_size: 1,
       max_overflow: 0,
@@ -318,4 +316,60 @@ pub fn pool_not_started_returns_error_test() {
   let result = layout_fn("Test", page_data)
 
   string.contains(result, "data-page=") |> should.equal(True)
+}
+
+pub fn render_timeout_fallback_test() {
+  let config =
+    inertia_wisp_ssr.SsrConfig(
+      name: atom.create("render_timeout_fallback_test"),
+      module_path: "test/fixtures/slow.js",
+      pool_size: 1,
+      max_overflow: 0,
+      timeout: 50,
+    )
+
+  let child_spec = inertia_wisp_ssr.child_spec(config)
+  let assert Ok(started) = child_spec.start()
+
+  let template = fn(_head: List(String), body: String) -> String { body }
+  let layout_fn = inertia_wisp_ssr.layout(config, template)
+  let page_data = json.object([#("test", json.string("timeout"))])
+  let result = layout_fn("SlowComponent", page_data)
+
+  string.contains(result, "data-page=") |> should.equal(True)
+  string.contains(result, "id=\"app\"") |> should.equal(True)
+
+  process.send_exit(started.pid)
+}
+
+pub fn checkout_timeout_fallback_test() {
+  let config =
+    inertia_wisp_ssr.SsrConfig(
+      name: atom.create("checkout_timeout_fallback_test"),
+      module_path: "test/fixtures/slow.js",
+      pool_size: 1,
+      max_overflow: 0,
+      timeout: 50,
+    )
+
+  let child_spec = inertia_wisp_ssr.child_spec(config)
+  let assert Ok(started) = child_spec.start()
+
+  let template = fn(_head: List(String), body: String) -> String { body }
+  let layout_fn = inertia_wisp_ssr.layout(config, template)
+  let page_data = json.object([#("test", json.string("checkout"))])
+
+  process.spawn(fn() {
+    layout_fn("SlowComponent", page_data)
+    Nil
+  })
+
+  process.sleep(10)
+
+  let result = layout_fn("BlockedComponent", page_data)
+
+  string.contains(result, "data-page=") |> should.equal(True)
+  string.contains(result, "id=\"app\"") |> should.equal(True)
+
+  process.send_exit(started.pid)
 }
