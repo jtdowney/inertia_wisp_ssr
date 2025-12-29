@@ -45,7 +45,7 @@ fn ffi_render(
 ) -> Result(SsrResult, Dynamic)
 
 /// Create a child specification for adding the pool to a supervision tree.
-pub fn child_spec(
+pub fn supervised(
   name: Atom,
   module_path: String,
   pool_size: Int,

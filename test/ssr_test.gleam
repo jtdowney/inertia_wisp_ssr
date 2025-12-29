@@ -147,7 +147,7 @@ pub fn pool_renders_ssr_test() {
       timeout: 5000,
     )
 
-  let child_spec = inertia_wisp_ssr.child_spec(config)
+  let child_spec = inertia_wisp_ssr.supervised(config)
   let assert Ok(started) = child_spec.start()
 
   let template = fn(head: List(String), body: String) -> String {
@@ -186,7 +186,7 @@ pub fn make_layout_renders_ssr_test() {
       timeout: 5000,
     )
 
-  let child_spec = inertia_wisp_ssr.child_spec(config)
+  let child_spec = inertia_wisp_ssr.supervised(config)
   let assert Ok(started) = child_spec.start()
 
   let layout = inertia_wisp_ssr.make_layout(config)
@@ -227,7 +227,7 @@ pub fn layout_fallback_contains_data_page_test() {
       timeout: 5000,
     )
 
-  let child_spec = inertia_wisp_ssr.child_spec(config)
+  let child_spec = inertia_wisp_ssr.supervised(config)
   let assert Ok(started) = child_spec.start()
 
   let template = fn(head: List(String), body: String) -> String {
@@ -255,7 +255,7 @@ pub fn layout_fallback_escapes_json_test() {
       timeout: 5000,
     )
 
-  let child_spec = inertia_wisp_ssr.child_spec(config)
+  let child_spec = inertia_wisp_ssr.supervised(config)
   let assert Ok(started) = child_spec.start()
 
   let template = fn(_head: List(String), body: String) -> String { body }
@@ -281,7 +281,7 @@ pub fn layout_fallback_empty_head_test() {
       timeout: 5000,
     )
 
-  let child_spec = inertia_wisp_ssr.child_spec(config)
+  let child_spec = inertia_wisp_ssr.supervised(config)
   let assert Ok(started) = child_spec.start()
 
   let head_received = fn(head: List(String), _body: String) -> String {
@@ -328,7 +328,7 @@ pub fn render_timeout_fallback_test() {
       timeout: 50,
     )
 
-  let child_spec = inertia_wisp_ssr.child_spec(config)
+  let child_spec = inertia_wisp_ssr.supervised(config)
   let assert Ok(started) = child_spec.start()
 
   let template = fn(_head: List(String), body: String) -> String { body }
@@ -352,7 +352,7 @@ pub fn checkout_timeout_fallback_test() {
       timeout: 50,
     )
 
-  let child_spec = inertia_wisp_ssr.child_spec(config)
+  let child_spec = inertia_wisp_ssr.supervised(config)
   let assert Ok(started) = child_spec.start()
 
   let template = fn(_head: List(String), body: String) -> String { body }
