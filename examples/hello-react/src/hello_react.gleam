@@ -17,7 +17,7 @@ pub fn main() {
   let config = inertia_wisp_ssr.default_config()
   let assert Ok(_) =
     supervisor.new(supervisor.OneForOne)
-    |> supervisor.add(inertia_wisp_ssr.child_spec(config))
+    |> supervisor.add(inertia_wisp_ssr.supervised(config))
     |> supervisor.start
 
   let assert Ok(manifest) = vite.load_manifest(static_directory)
