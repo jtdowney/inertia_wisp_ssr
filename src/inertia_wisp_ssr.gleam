@@ -7,7 +7,7 @@
 ////
 //// ## Setup
 ////
-//// 1. Add SSR to your supervision tree using `child_spec()`
+//// 1. Add SSR to your supervision tree using `supervised()`
 //// 2. Create a JavaScript SSR bundle that exports a `render` function
 //// 3. Wrap your layout function with `make_layout()` or `layout()`
 ////
@@ -29,7 +29,7 @@
 //// pub fn start_app() {
 ////   // Add SSR to your supervision tree
 ////   let assert Ok(_) = supervisor.new(supervisor.OneForOne)
-////     |> supervisor.add(inertia_wisp_ssr.child_spec(config))
+////     |> supervisor.add(inertia_wisp_ssr.supervised(config))
 ////     |> supervisor.start
 ////
 ////   // Start your web server...
@@ -142,12 +142,12 @@ pub fn default_config() -> SsrConfig {
 /// pub fn start_app() {
 ///   let config = inertia_wisp_ssr.default_config()
 ///   supervisor.new(supervisor.OneForOne)
-///   |> supervisor.add(inertia_wisp_ssr.child_spec(config))
+///   |> supervisor.add(inertia_wisp_ssr.supervised(config))
 ///   |> supervisor.start
 /// }
 /// ```
-pub fn child_spec(config: SsrConfig) -> ChildSpecification(Nil) {
-  pool.child_spec(
+pub fn supervised(config: SsrConfig) -> ChildSpecification(Nil) {
+  pool.supervised(
     config.name,
     config.module_path,
     config.pool_size,

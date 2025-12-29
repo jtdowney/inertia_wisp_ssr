@@ -29,14 +29,14 @@ inertia.response() with layout(template) from make_layout(config)
 
 **Key Modules:**
 
-- `src/inertia_wisp_ssr.gleam` — Public API: `PoolName`, `SsrConfig`, `default_config()`, `child_spec()`, `layout()`, `make_layout()`
+- `src/inertia_wisp_ssr.gleam` — Public API: `PoolName`, `SsrConfig`, `default_config()`, `supervised()`, `layout()`, `make_layout()`
 - `src/inertia_wisp_ssr/internal/worker.gleam` — OTP actor managing a Node.js child process
 - `src/inertia_wisp_ssr/internal/protocol.gleam` — NDJSON protocol encoding/decoding with ISSR prefix
 - `priv/ssr-server.cjs` — Node.js server script that loads user's render module
 
 **Architecture:** Gleam OTP actors → `child_process` package → Node.js processes, pooled via `poolboy`
 
-**Startup:** Use `inertia_wisp_ssr.child_spec(config)` which returns `ChildSpecification(Nil)` for adding to your supervision tree.
+**Startup:** Use `inertia_wisp_ssr.supervised(config)` which returns `ChildSpecification(Nil)` for adding to your supervision tree.
 
 ## Dependencies
 
