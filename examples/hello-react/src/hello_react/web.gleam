@@ -1,6 +1,6 @@
 import gleam/json
 import gleam/string
-import inertia_wisp_ssr.{type PageLayout}
+import inertia_wisp/ssr.{type PageLayout}
 import shared/vite.{type Manifest}
 import wisp.{type Request, type Response}
 

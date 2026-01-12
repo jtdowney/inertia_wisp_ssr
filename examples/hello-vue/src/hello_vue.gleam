@@ -2,7 +2,7 @@ import gleam/erlang/process
 import gleam/otp/static_supervisor as supervisor
 import hello_vue/router
 import hello_vue/web
-import inertia_wisp_ssr
+import inertia_wisp/ssr
 import mist
 import shared/vite
 import wisp
@@ -14,14 +14,14 @@ pub fn main() {
   let assert Ok(priv) = wisp.priv_directory("hello_vue")
   let static_directory = priv <> "/static"
 
-  let config = inertia_wisp_ssr.default_config()
+  let config = ssr.default_config()
   let assert Ok(_) =
     supervisor.new(supervisor.OneForOne)
-    |> supervisor.add(inertia_wisp_ssr.supervised(config))
+    |> supervisor.add(ssr.supervised(config))
     |> supervisor.start
 
   let assert Ok(manifest) = vite.load_manifest(static_directory)
-  let layout = inertia_wisp_ssr.make_layout(config)
+  let layout = ssr.make_layout(config)
   let ctx =
     web.Context(
       static_directory: static_directory,
