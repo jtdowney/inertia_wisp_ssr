@@ -1,13 +1,15 @@
-const path = require('path');
+const path = require("path");
 
-const PREFIX = 'ISSR';
-const isProduction = process.env.NODE_ENV === 'production';
-const debugSsr = process.env.DEBUG_SSR === '1';
+const PREFIX = "ISSR";
+const isProduction = process.env.NODE_ENV === "production";
+const debugSsr = process.env.DEBUG_SSR === "1";
 const modulePath = process.argv[2];
-const resolvedModulePath = modulePath ? path.resolve(process.cwd(), modulePath) : null;
+const resolvedModulePath = modulePath
+  ? path.resolve(process.cwd(), modulePath)
+  : null;
 
 if (!modulePath) {
-  console.error('Usage: node ssr-server.cjs <module-path>');
+  console.error("Usage: node ssr-server.cjs <module-path>");
   process.exit(1);
 }
 
@@ -16,10 +18,33 @@ const originalConsole = {
   warn: console.warn,
   error: console.error,
 };
-console.log = (...args) => originalConsole.error('[LOG]', ...args);
-console.warn = (...args) => originalConsole.error('[WARN]', ...args);
+console.log = (...args) => originalConsole.error("[LOG]", ...args);
+console.warn = (...args) => originalConsole.error("[WARN]", ...args);
 
 let cachedRender = null;
+
+function clearModuleCache(moduleId, visited) {
+  if (!moduleId) {
+    return;
+  }
+
+  const seen = visited || new Set();
+  if (seen.has(moduleId)) {
+    return;
+  }
+
+  const mod = require.cache[moduleId];
+  if (!mod) {
+    return;
+  }
+
+  seen.add(moduleId);
+  for (const child of mod.children) {
+    clearModuleCache(child.id, seen);
+  }
+
+  delete require.cache[moduleId];
+}
 
 async function getRender() {
   if (isProduction && cachedRender) {
@@ -29,14 +54,14 @@ async function getRender() {
   if (!isProduction) {
     try {
       const resolved = require.resolve(resolvedModulePath);
-      delete require.cache[resolved];
+      clearModuleCache(resolved);
     } catch (e) {}
   }
 
   const mod = require(resolvedModulePath);
   const render = mod.render || mod.default?.render || mod.default;
 
-  if (typeof render !== 'function') {
+  if (typeof render !== "function") {
     throw new Error(`Module ${modulePath} does not export a render function`);
   }
 
@@ -46,7 +71,7 @@ async function getRender() {
 
 function writeResponse(response) {
   const json = JSON.stringify(response);
-  process.stdout.write(PREFIX + json + '\n');
+  process.stdout.write(PREFIX + json + "\n");
 }
 
 async function handleRequest(line) {
@@ -57,35 +82,42 @@ async function handleRequest(line) {
   const jsonStr = line.slice(PREFIX.length);
 
   try {
-    const { page } = JSON.parse(jsonStr);
-    if (page == null || typeof page !== 'object') {
+    const parsed = JSON.parse(jsonStr);
+    const page = parsed.page;
+
+    if (page == null || typeof page !== "object") {
       throw new Error('Request must include a "page" object');
     }
     const render = await getRender();
     const result = await render(page);
 
-    const head = result.head || [];
-    const body = result.body || '';
+    const head = result.head ?? [];
+    const body = result.body ?? "";
 
     if (!Array.isArray(head)) {
-      throw new Error('render() must return { head: string[], body: string } - head is not an array');
+      throw new Error(
+        "render() must return { head: string[], body: string } - head is not an array",
+      );
     }
-    if (typeof body !== 'string') {
-      throw new Error('render() must return { head: string[], body: string } - body is not a string');
+    if (typeof body !== "string") {
+      throw new Error(
+        "render() must return { head: string[], body: string } - body is not a string",
+      );
     }
 
     writeResponse({
       ok: true,
       head,
-      body
+      body,
     });
   } catch (err) {
     if (debugSsr) {
-      originalConsole.error('[SSR Error]', err.stack || err);
+      originalConsole.error("[SSR Error]", err.stack || err);
     }
+
     writeResponse({
       ok: false,
-      error: err.message || String(err)
+      error: err.message || String(err),
     });
   }
 }
@@ -95,23 +127,29 @@ async function main() {
     try {
       await getRender();
     } catch (err) {
-      originalConsole.error('Failed to pre-load SSR module:', err.message);
+      originalConsole.error("Failed to pre-load SSR module:", err.message);
       process.exit(1);
     }
   }
 
-  const readline = require('readline');
+  const readline = require("readline");
   const rl = readline.createInterface({
     input: process.stdin,
-    terminal: false
+    terminal: false,
   });
 
   let pending = Promise.resolve();
-  rl.on('line', (line) => {
-    pending = pending.then(() => handleRequest(line));
+  rl.on("line", (line) => {
+    pending = pending
+      .then(() => handleRequest(line))
+      .catch((err) => {
+        if (debugSsr) {
+          originalConsole.error("[SSR Error]", err.stack || err);
+        }
+      });
   });
 
-  rl.on('close', () => {
+  rl.on("close", () => {
     process.exit(0);
   });
 }

@@ -15,22 +15,19 @@ gleam add inertia_wisp_ssr
 
 ## Quick Start
 
-> [!IMPORTANT]
-> Create your `SsrConfig` once and reuse it. Each call to `default_config()` or `pool_name()` generates a unique pool name—calling them multiple times will cause SSR to silently fall back to CSR.
-
 ### 1. Add SSR to Your Supervision Tree
 
 Add the SSR supervisor to your application's supervision tree:
 
 ```gleam
 import gleam/otp/static_supervisor as supervisor
-import inertia_wisp_ssr
+import inertia_wisp/ssr
 
 pub fn start_app() {
-  let config = inertia_wisp_ssr.default_config()
+  let config = ssr.default_config()
 
   supervisor.new(supervisor.OneForOne)
-  |> supervisor.add(inertia_wisp_ssr.child_spec(config))
+  |> supervisor.add(ssr.supervised(config))
   // |> supervisor.add(other_children...)
   |> supervisor.start
 }
@@ -43,12 +40,12 @@ Create a layout factory once at startup, then use it in your handlers:
 ```gleam
 import gleam/string
 import inertia_wisp/inertia
-import inertia_wisp_ssr
+import inertia_wisp/ssr
 
 // Create layout factory once (at module level or during startup)
 // The pool is looked up by name from config automatically
-const config = inertia_wisp_ssr.default_config()
-const layout = inertia_wisp_ssr.make_layout(config)
+const config = ssr.default_config()
+const layout = ssr.make_layout(config)
 
 fn my_layout(head: List(String), body: String) -> String {
   "<!DOCTYPE html>
@@ -142,23 +139,29 @@ export async function render(page) {
 Customize the SSR configuration:
 
 ```gleam
+import gleam/erlang/atom
+import gleam/option.{None}
 import gleam/otp/static_supervisor as supervisor
-import inertia_wisp_ssr.{SsrConfig}
+import gleam/time/duration
+import inertia_wisp/ssr.{SsrConfig}
 
 let config = SsrConfig(
-  name: inertia_wisp_ssr.pool_name("my_app_ssr"),  // Pool process name
-  module_path: "priv/ssr/ssr.js",                   // Path to JS bundle
-  pool_size: 8,                                     // Number of workers
-  timeout: 10_000,                                  // Render timeout (ms)
+  max_buffer_size: 1_048_576,             // 1MB buffer for Node.js output
+  max_overflow: 4,                        // Extra workers under load
+  module_path: "priv/ssr/ssr.js",         // Path to JS bundle
+  name: atom.create("my_app_ssr"),        // Pool process name
+  node_path: None,                        // Use system Node.js (or Some("/path/to/node"))
+  pool_size: 8,                           // Number of workers
+  timeout: duration.seconds(10),          // Render timeout
 )
 
 // Add to supervision tree
 supervisor.new(supervisor.OneForOne)
-|> supervisor.add(inertia_wisp_ssr.child_spec(config))
+|> supervisor.add(ssr.supervised(config))
 |> supervisor.start
 
 // Create layout factory with custom config
-let layout = inertia_wisp_ssr.make_layout(config)
+let layout = ssr.make_layout(config)
 
 // Use in handlers
 |> inertia.response(200, layout(my_template))
@@ -166,16 +169,19 @@ let layout = inertia_wisp_ssr.make_layout(config)
 
 ### Options
 
-- **`name`** - Pool process name for lookup (default: `"inertia_wisp_ssr"`)
+- **`max_buffer_size`** - Maximum bytes for Node.js stdout/stderr buffers (default: `1_048_576` / 1MB)
+- **`max_overflow`** - Temporary workers beyond `pool_size` under high load (default: `2`)
 - **`module_path`** - Path to your SSR JavaScript bundle (default: `"priv/ssr/ssr.js"`)
-- **`pool_size`** - Number of Node.js worker processes for parallel rendering (default: `4`)
-- **`timeout`** - Render timeout in milliseconds (default: `5000`)
+- **`name`** - Atom for pool process registration (default: `atom.create("inertia_wisp_ssr")`)
+- **`node_path`** - Custom Node.js executable path, or `None` to use system PATH (default: `None`)
+- **`pool_size`** - Number of persistent Node.js worker processes (default: `4`)
+- **`timeout`** - Maximum time to wait for SSR rendering (default: `duration.seconds(5)`)
 
 ## How It Works
 
 ### SSR Flow
 
-1. Your handler calls `inertia.response()` with `layout(template)` from `inertia_wisp_ssr.make_layout(config)`
+1. Your handler calls `inertia.response()` with `layout(template)` from `ssr.make_layout(config)`
 2. The SSR layer attempts to render the page using Node.js:
    - Serializes the Inertia page data to JSON
    - Calls your `ssr.js` `render()` function via the Node.js process pool
@@ -201,6 +207,11 @@ This ensures your app remains available even if SSR breaks.
 
 > [!IMPORTANT]
 > Set `NODE_ENV=production` so the SSR script is cached in memory. Without this, page rendering times will be very slow.
+
+## Debugging
+
+- **`DEBUG_SSR=1`** - Enable verbose error logging in the SSR server
+- Non-protocol stdout lines are silently ignored to prevent interference with the NDJSON protocol
 
 ## Documentation
 

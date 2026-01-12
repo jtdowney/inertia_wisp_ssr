@@ -20,8 +20,8 @@ gleam docs build         # Generate documentation
 
 ```
 inertia.response() with layout(template) from make_layout(config)
-    → bath pool checks out a worker
-    → worker.call() sends NDJSON request to Node.js process
+    → poolboy checks out a worker (gen_server)
+    → worker sends NDJSON request to Node.js child process
     → Node.js renders page, returns NDJSON response
     → Success: template receives {head, body}
     → Failure: CSR fallback with <div id="app" data-page="...">
@@ -29,18 +29,21 @@ inertia.response() with layout(template) from make_layout(config)
 
 **Key Modules:**
 
-- `src/inertia_wisp_ssr.gleam` — Public API: `PoolName`, `SsrConfig`, `default_config()`, `supervised()`, `layout()`, `make_layout()`
-- `src/inertia_wisp_ssr/internal/worker.gleam` — OTP actor managing a Node.js child process
-- `src/inertia_wisp_ssr/internal/protocol.gleam` — NDJSON protocol encoding/decoding with ISSR prefix
+- `src/inertia_wisp/ssr.gleam` — Public API: `SsrConfig`, `default_config()`, `supervised()`, `layout()`, `make_layout()`
+- `src/inertia_wisp/ssr/internal/pool.gleam` — FFI bindings to poolboy for pool management
+- `src/inertia_wisp/ssr/internal/child.gleam` — Node.js child process spawning and communication
+- `src/inertia_wisp/ssr/internal/protocol.gleam` — NDJSON protocol encoding/decoding with ISSR prefix
+- `src/inertia_wisp/inertia_wisp_ssr_ffi.erl` — Erlang gen_server worker implementation for poolboy
 - `priv/ssr-server.cjs` — Node.js server script that loads user's render module
 
-**Architecture:** Gleam OTP actors → `child_process` package → Node.js processes, pooled via `poolboy`
+**Architecture:** Erlang gen_server workers (via FFI) → `child_process` package → Node.js processes, pooled via `poolboy`
 
-**Startup:** Use `inertia_wisp_ssr.supervised(config)` which returns `ChildSpecification(Nil)` for adding to your supervision tree.
+**Startup:** Use `ssr.supervised(config)` (from `inertia_wisp/ssr`) which returns `ChildSpecification(Nil)` for adding to your supervision tree.
 
 ## Dependencies
 
 Pure Gleam implementation - no Elixir runtime required. Uses:
+
 - `child_process` — Spawning and communicating with Node.js processes
 - `poolboy` — Resource pooling with blocking checkout
 
@@ -52,7 +55,6 @@ Tests use `gleeunit` with `should` assertions. Test files in `test/` mirror sour
 
 ```bash
 gleam test                           # Run all tests
-gleam test -- --filter worker_test   # Run specific test module
 ```
 
 ## Protocol

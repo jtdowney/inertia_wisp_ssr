@@ -1,0 +1,7 @@
+---
+version: 1.5.3
+title: render minimal
+file: ./test/intertia_wisp/ssr/internal/pool_test.gleam
+test_name: render_minimal_test
+---
+{"head":["<title>TestComponent</title>","<meta name=\"test\" content=\"true\">"],"body":"<div id=\"app\" data-component=\"TestComponent\">{\"name\":\"John Doe\",\"age\":40}</div>"}
