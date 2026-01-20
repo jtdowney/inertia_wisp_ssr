@@ -40,7 +40,6 @@ pub fn render(
   page_data: Json,
   timeout: Duration,
 ) -> Result(Page, PoolError) {
-  let #(seconds, nanoseconds) = duration.to_seconds_and_nanoseconds(timeout)
-  let timeout = seconds * 1000 + nanoseconds / 1_000_000
+  let timeout = duration.to_milliseconds(timeout)
   do_render(pool_name, page_data, timeout)
 }
