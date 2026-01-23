@@ -21,10 +21,13 @@ Add the SSR supervisor to your application's supervision tree:
 
 ```gleam
 import gleam/otp/static_supervisor as supervisor
-import inertia_wisp/ssr
+import inertia_wisp/ssr.{SsrConfig}
 
 pub fn start_app() {
-  let config = ssr.default_config("my_app")
+  let config = SsrConfig(
+    ..ssr.default_config(),
+    module_path: ssr.priv_path("my_app", "ssr/ssr.js"),
+  )
 
   supervisor.new(supervisor.OneForOne)
   |> supervisor.add(ssr.supervised(config))
@@ -58,7 +61,10 @@ fn my_layout(head: List(String), body: String) -> String {
 }
 
 // In your main(), create the config and layout factory once at startup:
-// let config = ssr.default_config("my_app")
+// let config = SsrConfig(
+//   ..ssr.default_config(),
+//   module_path: ssr.priv_path("my_app", "ssr/ssr.js"),
+// )
 // let layout = ssr.make_layout(config)
 // Then pass `layout` through your context to handlers.
 
@@ -146,12 +152,11 @@ import gleam/time/duration
 import inertia_wisp/ssr.{SsrConfig}
 
 let config = SsrConfig(
-  app_name: "my_app",                     // OTP application name for priv directory
-  module_path: "ssr/ssr.js",              // Path to JS bundle (relative to priv, or absolute)
-  name: process.new_name("my_app_ssr"),   // Pool process name
-  node_path: None,                        // Use system Node.js (or Some("/path/to/node"))
-  pool_size: 8,                           // Number of workers
-  timeout: duration.seconds(5),           // Render timeout
+  module_path: ssr.priv_path("my_app", "ssr/ssr.js"),  // Absolute path to JS bundle
+  name: process.new_name("my_app_ssr"),                // Pool process name
+  node_path: None,                                     // Use system Node.js (or Some("/path/to/node"))
+  pool_size: 8,                                        // Number of workers
+  timeout: duration.seconds(5),                        // Render timeout
 )
 
 // Add to supervision tree
@@ -168,12 +173,15 @@ let layout = ssr.make_layout(config)
 
 ### Options
 
-- **`app_name`** - OTP application name, used to resolve the priv directory at runtime (required)
-- **`module_path`** - Path to your SSR JavaScript bundle; relative paths are resolved from priv, absolute paths (starting with `/`) are used as-is (default: `"ssr/ssr.js"`)
+- **`module_path`** - Absolute path to your SSR JavaScript bundle; use `ssr.priv_path(app_name, path)` to resolve paths relative to your app's priv directory
 - **`name`** - Pool name for process registration; create with `process.new_name()` (default: `process.new_name("inertia_wisp_ssr")`)
 - **`node_path`** - Custom Node.js executable path, or `None` to use system PATH (default: `None`)
 - **`pool_size`** - Number of persistent Node.js worker processes (default: `4`)
 - **`timeout`** - Maximum time to wait for SSR rendering (default: `duration.seconds(1)`)
+
+### Helper Functions
+
+- **`ssr.priv_path(app_name, path)`** - Resolves a path relative to an OTP application's priv directory. Use this at startup to get absolute paths that work correctly in Erlang releases.
 
 ## How It Works
 

@@ -2,7 +2,7 @@ import gleam/erlang/process
 import gleam/otp/static_supervisor as supervisor
 import hello_react/router
 import hello_react/web
-import inertia_wisp/ssr
+import inertia_wisp/ssr.{SsrConfig}
 import mist
 import shared/vite
 import wisp
@@ -14,7 +14,11 @@ pub fn main() {
   let assert Ok(priv) = wisp.priv_directory("hello_react")
   let static_directory = priv <> "/static"
 
-  let config = ssr.default_config("hello_react")
+  let config =
+    SsrConfig(
+      ..ssr.default_config(),
+      module_path: ssr.priv_path("hello_react", "ssr/ssr.js"),
+    )
   let assert Ok(_) =
     supervisor.new(supervisor.OneForOne)
     |> supervisor.add(ssr.supervised(config))
