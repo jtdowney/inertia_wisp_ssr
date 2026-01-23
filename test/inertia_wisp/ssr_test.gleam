@@ -10,13 +10,18 @@ import inertia_wisp/ssr/internal/protocol
 import simplifile
 
 pub fn default_config_values_test() {
-  let config = ssr.default_config("my_app")
+  let config = ssr.default_config()
 
-  assert config.app_name == "my_app"
-  assert config.module_path == "ssr/ssr.js"
+  assert config.module_path == "priv/ssr/ssr.js"
   assert config.node_path == None
   assert config.pool_size == 4
   assert config.timeout == duration.seconds(1)
+}
+
+pub fn priv_path_resolves_to_priv_fallback_test() {
+  // When app is not loaded, falls back to priv/
+  let path = ssr.priv_path("nonexistent_app", "ssr/ssr.js")
+  assert path == "priv/ssr/ssr.js"
 }
 
 pub fn layout_csr_fallback_on_ssr_error_test() {
@@ -25,7 +30,7 @@ pub fn layout_csr_fallback_on_ssr_error_test() {
 
   let config =
     ssr.SsrConfig(
-      ..ssr.default_config("inertia_wisp_ssr"),
+      ..ssr.default_config(),
       name: name,
       timeout: duration.seconds(1),
       module_path: "test/fixtures/error.js",
@@ -54,7 +59,7 @@ pub fn csr_fallback_escapes_xss_chars_test() {
 
   let config =
     ssr.SsrConfig(
-      ..ssr.default_config("inertia_wisp_ssr"),
+      ..ssr.default_config(),
       name: name,
       timeout: duration.seconds(1),
     )
@@ -84,7 +89,7 @@ pub fn csr_fallback_empty_head_test() {
 
   let config =
     ssr.SsrConfig(
-      ..ssr.default_config("inertia_wisp_ssr"),
+      ..ssr.default_config(),
       name: name,
       timeout: duration.seconds(1),
     )
@@ -103,7 +108,7 @@ pub fn make_layout_creates_reusable_closure_test() {
 
   let config =
     ssr.SsrConfig(
-      ..ssr.default_config("inertia_wisp_ssr"),
+      ..ssr.default_config(),
       name: name,
       timeout: duration.seconds(1),
       module_path: "test/fixtures/ssr.js",
@@ -135,7 +140,7 @@ pub fn supervised_starts_pool_test() {
   let name = process.new_name("supervised_test_pool")
   let config =
     ssr.SsrConfig(
-      ..ssr.default_config("inertia_wisp_ssr"),
+      ..ssr.default_config(),
       name: name,
       module_path: cwd <> "/test/fixtures/ssr.js",
       pool_size: 1,

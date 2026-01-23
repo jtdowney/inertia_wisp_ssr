@@ -34,15 +34,13 @@ pub type PoolName =
 ///
 /// ## Fields
 ///
-/// - `app_name`: OTP application name for priv directory resolution (required)
-/// - `module_path`: Path to the JavaScript SSR module relative to priv directory (default: "ssr/ssr.js")
+/// - `module_path`: Absolute path to the JavaScript SSR module (use `priv_path` to resolve)
 /// - `name`: Pool name for registration (default: uses default name)
 /// - `node_path`: Optional custom path to Node.js executable (default: None, uses system PATH)
 /// - `pool_size`: Number of persistent Node.js worker processes (default: 4)
 /// - `timeout`: Maximum time to wait for SSR rendering (default: 1 second)
 pub type SsrConfig {
   SsrConfig(
-    app_name: String,
     module_path: String,
     name: PoolName,
     node_path: Option(String),
@@ -51,21 +49,47 @@ pub type SsrConfig {
   )
 }
 
-/// Create a default SSR configuration for the given OTP application.
+/// Resolve a path relative to an OTP application's priv directory.
 ///
-/// The `app_name` is used to resolve the priv directory at runtime, which is
-/// required for SSR to work correctly in Erlang releases where the working
-/// directory is unpredictable.
+/// Call this at application startup to get the absolute path for `SsrConfig`.
+/// In Erlang releases, the priv directory location is unpredictable, so this
+/// function uses the OTP application system to resolve it correctly.
 ///
-/// Uses default pool name, "ssr/ssr.js" as module path (relative to priv),
-/// 4 workers, and 1s timeout.
+/// Falls back to `"priv/" <> path` if the application is not loaded.
+///
+/// ## Example
+///
+/// ```gleam
+/// let module_path = ssr.priv_path("my_app", "ssr/ssr.js")
+/// let config = SsrConfig(..ssr.default_config(), module_path: module_path)
+/// ```
+pub fn priv_path(app_name: String, path: String) -> String {
+  case application.priv_directory(app_name) {
+    Ok(priv) -> priv <> "/" <> path
+    Error(_) -> "priv/" <> path
+  }
+}
+
+/// Create a default SSR configuration.
+///
+/// Uses a default pool name, "priv/ssr/ssr.js" as module path, 4 workers,
+/// and 1s timeout. For production releases, use `priv_path()` to resolve
+/// the module path correctly.
+///
+/// ## Example
+///
+/// ```gleam
+/// let config = SsrConfig(
+///   ..ssr.default_config(),
+///   module_path: ssr.priv_path("my_app", "ssr/ssr.js"),
+/// )
+/// ```
 ///
 /// **Note**: This function creates a new pool name each time it's called.
 /// For multiple pools, create specific names with `process.new_name()` at startup.
-pub fn default_config(app_name: String) -> SsrConfig {
+pub fn default_config() -> SsrConfig {
   SsrConfig(
-    app_name: app_name,
-    module_path: "ssr/ssr.js",
+    module_path: "priv/ssr/ssr.js",
     name: process.new_name("inertia_wisp_ssr"),
     node_path: None,
     pool_size: 4,
@@ -76,8 +100,7 @@ pub fn default_config(app_name: String) -> SsrConfig {
 /// Get a child specification for adding the SSR pool to your supervision tree.
 ///
 /// The pool is registered under the name in `config`, allowing `make_layout()`
-/// to look it up automatically. The `module_path` is resolved relative to the
-/// application's priv directory using `app_name`.
+/// to look it up automatically.
 ///
 /// ## Example
 ///
@@ -86,24 +109,23 @@ pub fn default_config(app_name: String) -> SsrConfig {
 /// import inertia_wisp/ssr
 ///
 /// pub fn start_app() {
-///   let config = ssr.default_config("my_app")
+///   let config = SsrConfig(
+///     ..ssr.default_config(),
+///     module_path: ssr.priv_path("my_app", "ssr/ssr.js"),
+///   )
 ///   supervisor.new(supervisor.OneForOne)
 ///   |> supervisor.add(ssr.supervised(config))
 ///   |> supervisor.start
 /// }
 /// ```
 pub fn supervised(config: SsrConfig) -> ChildSpecification(Nil) {
-  let module_path = case string.starts_with(config.module_path, "/") {
-    True -> config.module_path
-    False ->
-      case application.priv_directory(config.app_name) {
-        Ok(priv) -> priv <> "/" <> config.module_path
-        Error(_) -> "priv/" <> config.module_path
-      }
-  }
-
   supervision.worker(fn() {
-    pool.start(config.name, module_path, config.node_path, config.pool_size)
+    pool.start(
+      config.name,
+      config.module_path,
+      config.node_path,
+      config.pool_size,
+    )
     |> result.map(fn(pid) { actor.Started(pid, Nil) })
     |> result.map_error(fn(_) { actor.InitFailed("pool start failed") })
   })
@@ -165,7 +187,11 @@ pub fn layout(
 ///
 /// ```gleam
 /// // At startup
-/// let layout = ssr.make_layout(ssr.default_config("my_app"))
+/// let config = SsrConfig(
+///   ..ssr.default_config(),
+///   module_path: ssr.priv_path("my_app", "ssr/ssr.js"),
+/// )
+/// let layout = ssr.make_layout(config)
 ///
 /// // In handler
 /// |> inertia.response(200, layout(my_template))
