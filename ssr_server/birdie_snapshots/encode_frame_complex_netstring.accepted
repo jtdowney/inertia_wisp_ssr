@@ -1,0 +1,7 @@
+---
+version: 1.5.3
+title: encode frame complex netstring
+file: ./test/ssr_server/protocol_test.gleam
+test_name: encode_frame_complex_test
+---
+68:{"ok":true,"head":["<title>Test</title>"],"body":"<div>Hello</div>"},

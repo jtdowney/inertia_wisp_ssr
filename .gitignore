@@ -5,3 +5,6 @@ erl_crash.dump
 node_modules
 examples/*/priv/ssr/
 examples/*/priv/static/
+
+# Bundled SSR server (generated)
+priv/ssr_server.cjs

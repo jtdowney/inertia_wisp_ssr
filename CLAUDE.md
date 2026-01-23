@@ -4,13 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Gleam library providing server-side rendering (SSR) for Inertia.js applications via `inertia_wisp`. Uses a pool of Node.js worker processes managed by the `poolboy` pooling library with automatic CSR fallback on failure.
+Gleam library providing server-side rendering (SSR) for Inertia.js applications via `inertia_wisp`. Uses a pool of Node.js worker processes managed by a pure Gleam pool implementation with automatic CSR fallback on failure.
 
 ## Build Commands
 
 ```bash
-gleam build              # Compile the project
-gleam test               # Run all tests
+just build               # Build main library and ssr_server
+just test                # Run all tests
 gleam docs build         # Generate documentation
 ```
 
@@ -20,9 +20,11 @@ gleam docs build         # Generate documentation
 
 ```
 inertia.response() with layout(template) from make_layout(config)
-    → poolboy checks out a worker (gen_server)
-    → worker sends NDJSON request to Node.js child process
-    → Node.js renders page, returns NDJSON response
+    → pool manager checks out a worker (OTP actor)
+    → worker spawns Node.js running priv/ssr_server.cjs
+    → Node.js connects to TCP server
+    → worker sends netstring-framed request over TCP
+    → Node.js renders page, returns netstring-framed response
     → Success: template receives {head, body}
     → Failure: CSR fallback with <div id="app" data-page="...">
 ```
@@ -30,36 +32,44 @@ inertia.response() with layout(template) from make_layout(config)
 **Key Modules:**
 
 - `src/inertia_wisp/ssr.gleam` — Public API: `SsrConfig`, `default_config()`, `supervised()`, `layout()`, `make_layout()`
-- `src/inertia_wisp/ssr/internal/pool.gleam` — FFI bindings to poolboy for pool management
-- `src/inertia_wisp/ssr/internal/child.gleam` — Node.js child process spawning and communication
-- `src/inertia_wisp/ssr/internal/protocol.gleam` — NDJSON protocol encoding/decoding with ISSR prefix
-- `src/inertia_wisp/inertia_wisp_ssr_ffi.erl` — Erlang gen_server worker implementation for poolboy
-- `priv/ssr-server.cjs` — Node.js server script that loads user's render module
+- `src/inertia_wisp/ssr/internal/pool.gleam` — Pure Gleam pool manager and pool actor using OTP
+- `src/inertia_wisp/ssr/internal/worker.gleam` — Worker actor that manages a Node.js process; includes embedded glisten TCP server
+- `src/inertia_wisp/ssr/internal/protocol.gleam` — Netstring + JSON protocol encoding/decoding
+- `src/inertia_wisp/ssr/internal/netstring.gleam` — Netstring framing (shared with JS target)
+- `ssr_server/` — Gleam subproject compiled to JavaScript (the Node.js TCP client)
+- `priv/ssr_server.cjs` — Bundled JavaScript that Node.js runs (built from ssr_server/)
 
-**Architecture:** Erlang gen_server workers (via FFI) → `child_process` package → Node.js processes, pooled via `poolboy`
+**Architecture:** TCP server (glisten) → Gleam OTP actors (pool + workers) → spawn Node.js via `child_process` → Node connects to TCP server
 
 **Startup:** Use `ssr.supervised(config)` (from `inertia_wisp/ssr`) which returns `ChildSpecification(Nil)` for adding to your supervision tree.
 
 ## Dependencies
 
-Pure Gleam implementation - no Elixir runtime required. Uses:
+Pure Gleam implementation - no Elixir runtime or Erlang FFI required. Uses:
 
-- `child_process` — Spawning and communicating with Node.js processes
-- `poolboy` — Resource pooling with blocking checkout
+- `glisten` — TCP server for Node.js connections
+- `gleam_otp` — Actor-based pool and worker management
+- `gleam_json` — JSON encoding/decoding
+- `gleam_time` — Duration type for timeouts
+- `child_process` — Spawning and managing Node.js processes
 
 **Important:** Set `NODE_ENV=production` so the SSR script caches the render module in memory. Without this, the module is reloaded on each request (useful for development hot-reload).
 
 ## Testing
 
-Tests use `gleeunit` with `should` assertions. Test files in `test/` mirror source structure.
+Tests use `unitest` with assert expressions. Test files in `test/` mirror source structure.
 
 ```bash
-gleam test                           # Run all tests
+just test                            # Run all tests
 ```
 
 ## Protocol
 
-Communication with Node.js uses NDJSON (newline-delimited JSON) with an `ISSR` prefix to distinguish protocol messages from console output:
+Communication with Node.js uses netstring-framed JSON over TCP:
 
-Request: `ISSR{"page": {...}}\n`
-Response: `ISSR{"ok": true, "head": [...], "body": "..."}\n` or `ISSR{"ok": false, "error": "..."}\n`
+```
+Netstring format: <length>:<data>,
+```
+
+Request: `{"page": {...}}`
+Response: `{"ok": true, "head": [...], "body": "..."}` or `{"ok": false, "error": "..."}`

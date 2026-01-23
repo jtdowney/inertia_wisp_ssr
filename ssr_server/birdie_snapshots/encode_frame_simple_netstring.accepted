@@ -1,0 +1,7 @@
+---
+version: 1.5.3
+title: encode frame simple netstring
+file: ./test/ssr_server/protocol_test.gleam
+test_name: encode_frame_simple_test
+---
+11:{"ok":true},

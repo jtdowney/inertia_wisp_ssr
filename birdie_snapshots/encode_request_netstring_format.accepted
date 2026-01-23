@@ -1,0 +1,7 @@
+---
+version: 1.5.3
+title: encode request netstring format
+file: ./test/inertia_wisp/ssr/internal/protocol_test.gleam
+test_name: encode_request_netstring_test
+---
+41:{"page":{"name":"John","content":"Test"}},

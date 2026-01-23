@@ -1,37 +1,47 @@
+import gleam/bytes_tree.{type BytesTree}
 import gleam/dynamic/decode
 import gleam/json.{type Json}
-import gleam/string
-
-const prefix = "ISSR"
+import gleam/result
+import inertia_wisp/ssr/internal/netstring
 
 pub type Page {
   Page(head: List(String), body: String)
 }
 
-pub type DecodeError {
-  NotProtocolLine
-  RenderError(String)
+pub type ProtocolError {
+  NetstringError(netstring.NetstringError)
   InvalidJson(String)
+  RenderError(String)
 }
 
-pub fn encode_request(page_data: Json) -> String {
+pub fn encode_request(page_data: Json) -> BytesTree {
   let request = json.object([#("page", page_data)])
-  prefix <> json.to_string(request) <> "\n"
+  encode_frame(request)
 }
 
-pub fn decode_response(line: String) -> Result(Page, DecodeError) {
-  let trimmed = string.trim_end(line)
+fn encode_frame(data: Json) -> BytesTree {
+  json.to_string_tree(data)
+  |> netstring.encode_tree
+  |> bytes_tree.from_string_tree
+}
 
-  case string.starts_with(trimmed, prefix) {
-    False -> Error(NotProtocolLine)
-    True -> {
-      let json_str = string.drop_start(trimmed, string.length(prefix))
-      case json.parse(json_str, response_decoder()) {
-        Ok(Ok(result)) -> Ok(result)
-        Ok(Error(error)) -> Error(RenderError(error))
-        Error(err) -> Error(InvalidJson(json_error_to_string(err)))
-      }
-    }
+pub fn decode_response(
+  buffer: BitArray,
+) -> Result(#(Result(Page, ProtocolError), BitArray), ProtocolError) {
+  use decoded_frame <- result.try(
+    netstring.decode(buffer)
+    |> result.map_error(NetstringError),
+  )
+
+  let #(frame, rest) = decoded_frame
+  use decoded_result <- result.try(
+    json.parse(frame, response_decoder())
+    |> result.map_error(fn(err) { InvalidJson(json_error_to_string(err)) }),
+  )
+
+  case decoded_result {
+    Ok(page) -> Ok(#(Ok(page), rest))
+    Error(error) -> Ok(#(Error(RenderError(error)), rest))
   }
 }
 

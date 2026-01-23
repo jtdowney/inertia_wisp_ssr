@@ -42,11 +42,6 @@ import gleam/string
 import inertia_wisp/inertia
 import inertia_wisp/ssr
 
-// Create layout factory once (at module level or during startup)
-// The pool is looked up by name from config automatically
-const config = ssr.default_config()
-const layout = ssr.make_layout(config)
-
 fn my_layout(head: List(String), body: String) -> String {
   "<!DOCTYPE html>
   <html>
@@ -62,7 +57,12 @@ fn my_layout(head: List(String), body: String) -> String {
   </html>"
 }
 
-pub fn handle_request(req: Request) -> Response {
+// In your main(), create the config and layout factory once at startup:
+// let config = ssr.default_config()
+// let layout = ssr.make_layout(config)
+// Then pass `layout` through your context to handlers.
+
+pub fn handle_request(req: Request, layout) -> Response {
   req
   |> inertia.response_builder("Home")
   |> inertia.props(my_props, encode_props)
@@ -139,20 +139,18 @@ export async function render(page) {
 Customize the SSR configuration:
 
 ```gleam
-import gleam/erlang/atom
+import gleam/erlang/process
 import gleam/option.{None}
 import gleam/otp/static_supervisor as supervisor
 import gleam/time/duration
 import inertia_wisp/ssr.{SsrConfig}
 
 let config = SsrConfig(
-  max_buffer_size: 1_048_576,             // 1MB buffer for Node.js output
-  max_overflow: 4,                        // Extra workers under load
   module_path: "priv/ssr/ssr.js",         // Path to JS bundle
-  name: atom.create("my_app_ssr"),        // Pool process name
+  name: process.new_name("my_app_ssr"),   // Pool process name
   node_path: None,                        // Use system Node.js (or Some("/path/to/node"))
   pool_size: 8,                           // Number of workers
-  timeout: duration.seconds(10),          // Render timeout
+  timeout: duration.seconds(5),           // Render timeout
 )
 
 // Add to supervision tree
@@ -169,13 +167,11 @@ let layout = ssr.make_layout(config)
 
 ### Options
 
-- **`max_buffer_size`** - Maximum bytes for Node.js stdout/stderr buffers (default: `1_048_576` / 1MB)
-- **`max_overflow`** - Temporary workers beyond `pool_size` under high load (default: `2`)
 - **`module_path`** - Path to your SSR JavaScript bundle (default: `"priv/ssr/ssr.js"`)
-- **`name`** - Atom for pool process registration (default: `atom.create("inertia_wisp_ssr")`)
+- **`name`** - Pool name for process registration; create with `process.new_name()` (default: `process.new_name("inertia_wisp_ssr")`)
 - **`node_path`** - Custom Node.js executable path, or `None` to use system PATH (default: `None`)
 - **`pool_size`** - Number of persistent Node.js worker processes (default: `4`)
-- **`timeout`** - Maximum time to wait for SSR rendering (default: `duration.seconds(5)`)
+- **`timeout`** - Maximum time to wait for SSR rendering (default: `duration.seconds(1)`)
 
 ## How It Works
 
@@ -211,7 +207,7 @@ This ensures your app remains available even if SSR breaks.
 ## Debugging
 
 - **`DEBUG_SSR=1`** - Enable verbose error logging in the SSR server
-- Non-protocol stdout lines are silently ignored to prevent interference with the NDJSON protocol
+- Node.js stdout/stderr is captured but not forwarded to the BEAM; use `DEBUG_SSR=1` for troubleshooting
 
 ## Documentation
 

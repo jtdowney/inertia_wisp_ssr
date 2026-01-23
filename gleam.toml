@@ -3,22 +3,22 @@ version = "0.1.0"
 description = "Server-side rendering support for inertia_wisp"
 licences = ["MIT"]
 repository = { type = "github", user = "jtdowney", repo = "inertia_wisp_ssr" }
-internal_modules = [
-  "inertia_wisp/ssr/internal",
-  "inertia_wisp/ssr/internal/*",
-]
+internal_modules = ["inertia_wisp/ssr/internal", "inertia_wisp/ssr/internal/*"]
 
 [dependencies]
 child_process = ">= 1.1.0 and < 2.0.0"
+gleam_crypto = ">= 1.5.1 and < 2.0.0"
+gleam_deque = ">= 1.0.0 and < 2.0.0"
 gleam_erlang = ">= 0.24.0 and < 2.0.0"
 gleam_json = ">= 3.0.0 and < 4.0.0"
 gleam_otp = ">= 0.9.0 and < 2.0.0"
 gleam_stdlib = ">= 0.60.0"
 gleam_time = ">= 1.6.0 and < 2.0.0"
+glisten = ">= 8.0.3 and < 9.0.0"
 inertia_wisp = ">= 0.2.1 and < 1.0.0"
 logging = ">= 1.3.0 and < 2.0.0"
-poolboy = ">= 1.5.0 and < 2.0.0"
 
 [dev-dependencies]
 birdie = ">= 1.5.3 and < 2.0.0"
+simplifile = ">= 2.3.2 and < 3.0.0"
 unitest = ">= 1.0.0 and < 2.0.0"
