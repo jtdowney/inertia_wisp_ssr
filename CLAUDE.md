@@ -33,13 +33,14 @@ inertia.response() with layout(template) from make_layout(config)
 
 - `src/inertia_wisp/ssr.gleam` — Public API: `SsrConfig`, `default_config()`, `supervised()`, `layout()`, `make_layout()`
 - `src/inertia_wisp/ssr/internal/pool.gleam` — Pure Gleam pool manager and pool actor using OTP
-- `src/inertia_wisp/ssr/internal/worker.gleam` — Worker actor that manages a Node.js process; includes embedded glisten TCP server
+- `src/inertia_wisp/ssr/internal/listener.gleam` — TCP server (glisten) that accepts Node.js connections and routes data to workers
+- `src/inertia_wisp/ssr/internal/worker.gleam` — Worker actor that spawns and manages a Node.js process
 - `src/inertia_wisp/ssr/internal/protocol.gleam` — Netstring + JSON protocol encoding/decoding
 - `src/inertia_wisp/ssr/internal/netstring.gleam` — Netstring framing (shared with JS target)
 - `ssr_server/` — Gleam subproject compiled to JavaScript (the Node.js TCP client)
 - `priv/ssr_server.cjs` — Bundled JavaScript that Node.js runs (built from ssr_server/)
 
-**Architecture:** TCP server (glisten) → Gleam OTP actors (pool + workers) → spawn Node.js via `child_process` → Node connects to TCP server
+**Architecture:** Pool starts listener (glisten TCP server) → pool spawns workers → workers spawn Node.js via `child_process` → Node.js connects back to listener → listener routes TCP data to workers
 
 **Startup:** Use `ssr.supervised(config)` (from `inertia_wisp/ssr`) which returns `ChildSpecification(Nil)` for adding to your supervision tree.
 
