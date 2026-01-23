@@ -25,6 +25,11 @@ import logging
 pub type PageLayout =
   fn(List(String), String) -> String
 
+/// Layout handler function returned by `layout()` and `make_layout()`.
+/// Takes the component name and page data JSON, returns rendered HTML.
+pub type LayoutHandler =
+  fn(String, Json) -> String
+
 /// Type alias for pool names - a typed handle for pool lookup.
 /// Create pool names using `process.new_name()` at application startup.
 pub type PoolName =
@@ -156,7 +161,7 @@ pub fn supervised(config: SsrConfig) -> ChildSpecification(Nil) {
 pub fn layout(
   config: SsrConfig,
   template: PageLayout,
-) -> fn(String, Json) -> String {
+) -> LayoutHandler {
   fn(component: String, page_data: Json) -> String {
     let frame = protocol.encode_request(page_data)
 
@@ -198,7 +203,7 @@ pub fn layout(
 /// ```
 pub fn make_layout(
   config: SsrConfig,
-) -> fn(PageLayout) -> fn(String, Json) -> String {
+) -> fn(PageLayout) -> LayoutHandler {
   fn(template: PageLayout) { layout(config, template) }
 }
 
