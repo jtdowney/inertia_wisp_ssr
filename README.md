@@ -150,6 +150,19 @@ export async function render(page) {
 }
 ```
 
+### 4. Configure Vite for SSR
+
+Vite externalizes dependencies by default during SSR builds. For SSR to work correctly, configure Vite to bundle all dependencies:
+
+```javascript
+// vite.config.js
+export default defineConfig({
+  ssr: {
+    noExternal: false,
+  },
+});
+```
+
 ## Configuration
 
 Customize the SSR configuration:
