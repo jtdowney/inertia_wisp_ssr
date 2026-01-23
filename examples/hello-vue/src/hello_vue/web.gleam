@@ -1,6 +1,5 @@
-import gleam/json
 import gleam/list
-import inertia_wisp/ssr.{type PageLayout}
+import inertia_wisp/ssr.{type LayoutHandler, type PageLayout}
 import nakai
 import nakai/attr
 import nakai/html
@@ -11,7 +10,7 @@ pub type Context {
   Context(
     static_directory: String,
     manifest: Manifest,
-    ssr_layout: fn(PageLayout) -> fn(String, json.Json) -> String,
+    ssr_layout: fn(PageLayout) -> LayoutHandler,
   )
 }
 
