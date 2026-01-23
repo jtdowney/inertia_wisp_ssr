@@ -6,7 +6,6 @@ import gleam/string
 import gleam/time/duration
 import inertia_wisp/ssr
 import inertia_wisp/ssr/internal/pool
-import inertia_wisp/ssr/internal/protocol
 import simplifile
 
 pub fn default_config_values_test() {
@@ -155,9 +154,7 @@ pub fn supervised_starts_pool_test() {
   let assert Ok(_page) =
     pool.render(
       name,
-      protocol.encode_request(
-        json.object([#("component", json.string("Test"))]),
-      ),
+      json.object([#("component", json.string("Test"))]),
       duration.seconds(1),
     )
 }

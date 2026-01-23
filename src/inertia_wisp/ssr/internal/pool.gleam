@@ -1,5 +1,4 @@
 import gleam/bool
-import gleam/bytes_tree.{type BytesTree}
 import gleam/deque.{type Deque}
 import gleam/dict.{type Dict}
 import gleam/erlang/process.{
@@ -12,6 +11,7 @@ import gleam/option.{type Option}
 import gleam/order
 import gleam/otp/actor
 import gleam/result
+import gleam/json.{type Json}
 import gleam/time/duration.{type Duration}
 import gleam/time/timestamp
 import inertia_wisp/ssr/internal/listener
@@ -117,7 +117,7 @@ pub fn stop(pool_name: PoolName) -> Nil {
 
 pub fn render(
   pool_name: PoolName,
-  frame: BytesTree,
+  page_data: Json,
   timeout: Duration,
 ) -> Result(Page, PoolError) {
   use _ <- result.try(
@@ -125,6 +125,7 @@ pub fn render(
     |> result.replace_error(NotStarted),
   )
 
+  let frame = protocol.encode_request(page_data)
   let pool_subject = process.named_subject(pool_name)
   let start = timestamp.system_time()
   use worker <- worker_transaction(pool_subject, timeout)
