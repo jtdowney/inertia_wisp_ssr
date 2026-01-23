@@ -1,9 +1,7 @@
 import unitest
-
-@external(erlang, "inertia_wisp_ssr_test_ffi", "suppress_logger")
-fn suppress_logger() -> Nil
+import utils
 
 pub fn main() {
-  suppress_logger()
+  utils.suppress_logger()
   unitest.main()
 }
