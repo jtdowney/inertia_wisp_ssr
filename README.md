@@ -209,12 +209,3 @@ This ensures your app remains available even if SSR breaks.
 ## Debugging
 
 - **`DEBUG_SSR=1`** - Enable verbose error logging in the SSR server
-- Node.js stdout/stderr is captured but not forwarded to the BEAM; use `DEBUG_SSR=1` for troubleshooting
-
-## Documentation
-
-Full API documentation is available on [HexDocs](https://hexdocs.pm/inertia_wisp_ssr/).
-
-## License
-
-MIT

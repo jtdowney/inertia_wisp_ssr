@@ -1,17 +1,17 @@
 import argv
 import envoy
 import gleam/bit_array
+import gleam/dynamic.{type Dynamic}
 import gleam/dynamic/decode
 import gleam/int
 import gleam/io
-import gleam/javascript/promise
+import gleam/javascript/promise.{type Promise}
 import gleam/json.{type Json}
 import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import inertia_wisp/ssr/internal/netstring
 import node_socket_client.{type Event, type SocketClient}
-import ssr_server/render.{type RenderModule}
 
 type State {
   State(
@@ -22,6 +22,30 @@ type State {
     socket: Option(SocketClient),
   )
 }
+
+pub type RenderModule
+
+pub type RenderedPage {
+  RenderedPage(head: List(String), body: String)
+}
+
+pub type RenderError {
+  ModuleNotFound(String)
+  NoRenderExport(String)
+  RenderFailed(String)
+}
+
+@external(javascript, "./ssr_server_ffi.mjs", "loadModule")
+pub fn load_module(path: String) -> Result(RenderModule, RenderError)
+
+@external(javascript, "./ssr_server_ffi.mjs", "callRender")
+pub fn render(
+  module: RenderModule,
+  page: Dynamic,
+) -> Promise(Result(RenderedPage, RenderError))
+
+@external(javascript, "process", "exit")
+fn exit(code: Int) -> Nil
 
 pub fn main() {
   case parse_args() {
@@ -46,7 +70,8 @@ fn start_client(port: Int, module_path: String, worker_id: Int) -> Nil {
     <> ", worker_id="
     <> int.to_string(worker_id),
   )
-  case render.load_module(module_path) {
+
+  case load_module(module_path) {
     Ok(module) -> {
       debug("Render module loaded successfully")
       let state =
@@ -57,13 +82,7 @@ fn start_client(port: Int, module_path: String, worker_id: Int) -> Nil {
           buffer: <<>>,
           socket: None,
         )
-      let _socket =
-        node_socket_client.connect(
-          "127.0.0.1",
-          port,
-          state,
-          fn(state, socket, event) { handle_event(state, socket, event) },
-        )
+      let _ = node_socket_client.connect("127.0.0.1", port, state, handle_event)
       Nil
     }
     Error(err) -> {
@@ -135,7 +154,7 @@ fn handle_request(state: State, socket: SocketClient, json_str: String) -> Nil {
     Ok(page) -> {
       debug("Request parsed, calling render")
       let _ =
-        render.call_render(module, page)
+        render(module, page)
         |> promise.tap(fn(result) {
           case result {
             Ok(_) -> debug("Render succeeded")
@@ -173,7 +192,7 @@ fn reload_module_if_needed(state: State) -> RenderModule {
     True -> state.module
     False -> {
       debug("Reloading module (NODE_ENV != production)")
-      render.load_module(state.module_path)
+      load_module(state.module_path)
       |> result.unwrap(state.module)
     }
   }
@@ -200,11 +219,9 @@ fn debug(msg: String) -> Nil {
   }
 }
 
-fn build_response(
-  result: Result(render.RenderedPage, render.RenderError),
-) -> Json {
+fn build_response(result: Result(RenderedPage, RenderError)) -> Json {
   case result {
-    Ok(render.RenderedPage(head, body)) ->
+    Ok(RenderedPage(head, body)) ->
       json.object([
         #("ok", json.bool(True)),
         #("head", json.array(head, json.string)),
@@ -223,11 +240,11 @@ fn request_decoder() -> decode.Decoder(decode.Dynamic) {
   decode.success(page)
 }
 
-fn render_error_to_string(err: render.RenderError) -> String {
+fn render_error_to_string(err: RenderError) -> String {
   case err {
-    render.ModuleNotFound(path) -> "Module not found: " <> path
-    render.NoRenderExport(path) -> "No render export in: " <> path
-    render.RenderFailed(msg) -> msg
+    ModuleNotFound(path) -> "Module not found: " <> path
+    NoRenderExport(path) -> "No render export in: " <> path
+    RenderFailed(msg) -> msg
   }
 }
 
@@ -247,6 +264,3 @@ fn parse_args() -> Result(#(Int, String, Int), String) {
     _ -> Error("Missing required arguments")
   }
 }
-
-@external(javascript, "process", "exit")
-fn exit(code: Int) -> Nil
