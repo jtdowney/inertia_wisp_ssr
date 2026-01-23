@@ -1,6 +1,9 @@
 import gleam/json
-import gleam/string
+import gleam/list
 import inertia_wisp/ssr.{type PageLayout}
+import nakai
+import nakai/attr
+import nakai/html
 import shared/vite.{type Manifest}
 import wisp.{type Request, type Response}
 
@@ -34,16 +37,23 @@ pub fn layout(ctx: Context) -> PageLayout {
 }
 
 fn layout_html(head: List(String), body: String, main_js: String) -> String {
-  "<!DOCTYPE html>
-<html lang=\"en\">
-  <head>
-    <meta charset=\"utf-8\" />
-    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
-    " <> string.join(head, "\n    ") <> "
-  </head>
-  <body>
-    " <> body <> "
-    <script type=\"module\" src=\"" <> main_js <> "\"></script>
-  </body>
-</html>"
+  html.Html([attr.Attr("lang", "en")], [
+    html.Head(
+      list.flatten([
+        [
+          html.meta([attr.charset("utf-8")]),
+          html.meta([
+            attr.name("viewport"),
+            attr.content("width=device-width, initial-scale=1"),
+          ]),
+        ],
+        list.map(head, html.UnsafeInlineHtml),
+      ]),
+    ),
+    html.Body([], [
+      html.UnsafeInlineHtml(body),
+      html.Script([attr.src(main_js)], ""),
+    ]),
+  ])
+  |> nakai.to_string
 }

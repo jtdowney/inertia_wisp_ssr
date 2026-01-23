@@ -38,26 +38,36 @@ pub fn start_app() {
 
 ### 2. Create an SSR-Enabled Layout
 
-Create a layout factory once at startup, then use it in your handlers:
+Create a layout factory once at startup, then use it in your handlers. This example uses [nakai](https://hex.pm/packages/nakai) for type-safe HTML generation:
 
 ```gleam
-import gleam/string
+import gleam/list
 import inertia_wisp/inertia
 import inertia_wisp/ssr
+import nakai
+import nakai/attr
+import nakai/html
 
 fn my_layout(head: List(String), body: String) -> String {
-  "<!DOCTYPE html>
-  <html>
-    <head>
-      <meta charset=\"utf-8\">
-      <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
-      " <> string.join(head, "\n") <> "
-    </head>
-    <body>
-      " <> body <> "
-      <script src=\"/app.js\"></script>
-    </body>
-  </html>"
+  html.Html([attr.Attr("lang", "en")], [
+    html.Head(
+      list.flatten([
+        [
+          html.meta([attr.charset("utf-8")]),
+          html.meta([
+            attr.name("viewport"),
+            attr.content("width=device-width, initial-scale=1"),
+          ]),
+        ],
+        list.map(head, html.UnsafeInlineHtml),
+      ]),
+    ),
+    html.Body([], [
+      html.UnsafeInlineHtml(body),
+      html.Script([attr.src("/app.js")], ""),
+    ]),
+  ])
+  |> nakai.to_string
 }
 
 // In your main(), create the config and layout factory once at startup:
