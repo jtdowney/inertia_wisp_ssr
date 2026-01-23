@@ -78,6 +78,7 @@ type WorkerState {
     listener_subject: Subject(listener.WorkerMessage),
     node_process: Process,
     connection: ConnectionState,
+    process_alive: Bool,
   )
 }
 
@@ -135,6 +136,7 @@ fn worker_init(
           listener_subject: listener_subject,
           node_process: child,
           connection: Connected(send:, pending: None, buffer: <<>>),
+          process_alive: True,
         )
 
       let full_selector =
@@ -264,7 +266,10 @@ fn handle_worker_message(
 
     TcpClosed -> {
       fail_pending_from_state(state, Crashed)
-      worker_cleanup(state)
+      // Don't call worker_cleanup here - the Node.js process either:
+      // 1. Already exited (causing TCP to close), or
+      // 2. Will exit when it detects the closed connection
+      // Calling stop on an already-dead process causes a crash.
       actor.stop()
     }
 
@@ -280,7 +285,7 @@ fn handle_worker_message(
     }
 
     PortExit(_code) -> {
-      fail_pending_from_state(state, Crashed)
+      fail_pending_from_state(WorkerState(..state, process_alive: False), Crashed)
       actor.stop()
     }
   }
@@ -345,6 +350,7 @@ fn fail_pending_from_state(state: WorkerState, error: WorkerError) -> Nil {
 }
 
 fn worker_cleanup(state: WorkerState) -> Nil {
+  use <- bool.guard(when: !state.process_alive, return: Nil)
   child_process.stop(state.node_process)
 }
 
