@@ -14,10 +14,6 @@ import inertia_wisp/ssr/internal/pool
 import inertia_wisp/ssr/internal/protocol.{Page}
 import utils
 
-fn make_frame(page_json: json.Json) {
-  protocol.encode_request(page_json)
-}
-
 /// Test the full SSR render flow using the test_render.js fixture
 pub fn full_ssr_render_test() {
   use pool_name <- utils.with_pool("test/fixtures/test_render.js", 1)
@@ -31,7 +27,7 @@ pub fn full_ssr_render_test() {
     ])
 
   let assert Ok(Page(head, body)) =
-    pool.render(pool_name, make_frame(page_data), duration.seconds(5))
+    pool.render(pool_name, page_data, duration.seconds(5))
 
   assert head == ["<title>TestComponent</title>"]
   assert string.contains(body, "\"message\":\"Hello\"")
@@ -49,7 +45,7 @@ pub fn ssr_renders_component_name_test() {
     ])
 
   let assert Ok(Page(head, _body)) =
-    pool.render(pool_name, make_frame(page_data), duration.seconds(5))
+    pool.render(pool_name, page_data, duration.seconds(5))
 
   assert head == ["<title>Dashboard</title>"]
 }
@@ -72,7 +68,7 @@ pub fn ssr_serializes_props_test() {
     ])
 
   let assert Ok(Page(_head, body)) =
-    pool.render(pool_name, make_frame(page_data), duration.seconds(5))
+    pool.render(pool_name, page_data, duration.seconds(5))
 
   body
   |> birdie.snap("ssr serializes props")
@@ -88,7 +84,7 @@ pub fn ssr_multiple_renders_test() {
       #("props", json.object([#("id", json.int(1))])),
     ])
   let assert Ok(Page(head1, _body1)) =
-    pool.render(pool_name, make_frame(page1), duration.seconds(5))
+    pool.render(pool_name, page1, duration.seconds(5))
   assert head1 == ["<title>Page1</title>"]
 
   let page2 =
@@ -97,7 +93,7 @@ pub fn ssr_multiple_renders_test() {
       #("props", json.object([#("id", json.int(2))])),
     ])
   let assert Ok(Page(head2, _body2)) =
-    pool.render(pool_name, make_frame(page2), duration.seconds(5))
+    pool.render(pool_name, page2, duration.seconds(5))
   assert head2 == ["<title>Page2</title>"]
 
   let page3 =
@@ -106,6 +102,6 @@ pub fn ssr_multiple_renders_test() {
       #("props", json.object([#("id", json.int(3))])),
     ])
   let assert Ok(Page(head3, _body3)) =
-    pool.render(pool_name, make_frame(page3), duration.seconds(5))
+    pool.render(pool_name, page3, duration.seconds(5))
   assert head3 == ["<title>Page3</title>"]
 }

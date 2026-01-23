@@ -16,7 +16,7 @@ import gleam/string
 import gleam/time/duration.{type Duration}
 import inertia_wisp/html
 import inertia_wisp/ssr/internal/pool
-import inertia_wisp/ssr/internal/protocol.{Page}
+import inertia_wisp/ssr/internal/protocol
 import logging
 
 /// Page layout function that receives SSR head elements and body content.
@@ -158,15 +158,10 @@ pub fn supervised(config: SsrConfig) -> ChildSpecification(Nil) {
 /// // In handler:
 /// |> inertia.response(200, ssr.layout(config, my_layout))
 /// ```
-pub fn layout(
-  config: SsrConfig,
-  template: PageLayout,
-) -> LayoutHandler {
+pub fn layout(config: SsrConfig, template: PageLayout) -> LayoutHandler {
   fn(component: String, page_data: Json) -> String {
-    let frame = protocol.encode_request(page_data)
-
-    case pool.render(config.name, frame, config.timeout) {
-      Ok(Page(head:, body:)) -> {
+    case pool.render(config.name, page_data, config.timeout) {
+      Ok(protocol.Page(head:, body:)) -> {
         template(head, body)
       }
       Error(reason) -> {
@@ -200,9 +195,7 @@ pub fn layout(
 /// |> inertia.response(200, layout(my_template))
 /// ```
 @deprecated("Use `ssr.layout(config, _)` instead")
-pub fn make_layout(
-  config: SsrConfig,
-) -> fn(PageLayout) -> LayoutHandler {
+pub fn make_layout(config: SsrConfig) -> fn(PageLayout) -> LayoutHandler {
   fn(template: PageLayout) { layout(config, template) }
 }
 

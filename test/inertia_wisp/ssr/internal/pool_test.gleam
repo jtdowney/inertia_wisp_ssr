@@ -1,5 +1,4 @@
 import birdie
-import gleam/bytes_tree.{type BytesTree}
 import gleam/erlang/process
 import gleam/json
 import gleam/option.{None, Some}
@@ -18,28 +17,22 @@ fn encode_page(page: Page) -> String {
   |> json.to_string
 }
 
-fn make_frame(page_json: json.Json) -> BytesTree {
-  protocol.encode_request(page_json)
-}
-
 pub fn render_minimal_test() {
   use name <- utils.with_pool("test/fixtures/ssr.js", 1)
 
   let assert Ok(page) =
     pool.render(
       name,
-      make_frame(
-        json.object([
-          #("component", json.string("TestComponent")),
-          #(
-            "props",
-            json.object([
-              #("name", json.string("John Doe")),
-              #("age", json.int(40)),
-            ]),
-          ),
-        ]),
-      ),
+      json.object([
+        #("component", json.string("TestComponent")),
+        #(
+          "props",
+          json.object([
+            #("name", json.string("John Doe")),
+            #("age", json.int(40)),
+          ]),
+        ),
+      ]),
       duration.seconds(1),
     )
 
@@ -53,18 +46,16 @@ pub fn render_malformed_test() {
   let assert Error(pool.Worker(worker.RenderFailed(_))) =
     pool.render(
       name,
-      make_frame(
-        json.object([
-          #("component", json.string("TestComponent")),
-          #(
-            "props",
-            json.object([
-              #("name", json.string("John Doe")),
-              #("age", json.int(40)),
-            ]),
-          ),
-        ]),
-      ),
+      json.object([
+        #("component", json.string("TestComponent")),
+        #(
+          "props",
+          json.object([
+            #("name", json.string("John Doe")),
+            #("age", json.int(40)),
+          ]),
+        ),
+      ]),
       duration.seconds(1),
     )
 }
@@ -75,7 +66,7 @@ pub fn render_timeout_test() {
   let assert Error(pool.Worker(worker.Timeout)) =
     pool.render(
       name,
-      make_frame(json.object([#("component", json.string("SlowComponent"))])),
+      json.object([#("component", json.string("SlowComponent"))]),
       duration.milliseconds(20),
     )
 }
@@ -86,7 +77,7 @@ pub fn render_large_response_test() {
   let assert Ok(page) =
     pool.render(
       name,
-      make_frame(json.object([#("component", json.string("LargeComponent"))])),
+      json.object([#("component", json.string("LargeComponent"))]),
       duration.seconds(5),
     )
   assert string.length(page.body) == 10_000
@@ -98,7 +89,7 @@ pub fn render_pool_not_started_test() {
   let result =
     pool.render(
       name,
-      make_frame(json.object([#("component", json.string("Test"))])),
+      json.object([#("component", json.string("Test"))]),
       duration.seconds(1),
     )
 
@@ -111,7 +102,7 @@ pub fn render_worker_crashed_test() {
   let assert Error(pool.Worker(worker.Crashed)) =
     pool.render(
       name,
-      make_frame(json.object([#("component", json.string("Test"))])),
+      json.object([#("component", json.string("Test"))]),
       duration.milliseconds(500),
     )
 }
@@ -133,19 +124,19 @@ pub fn render_multi_worker_pool_test() {
   let assert Ok(_) =
     pool.render(
       name,
-      make_frame(json.object([#("component", json.string("C1"))])),
+      json.object([#("component", json.string("C1"))]),
       duration.seconds(2),
     )
   let assert Ok(_) =
     pool.render(
       name,
-      make_frame(json.object([#("component", json.string("C2"))])),
+      json.object([#("component", json.string("C2"))]),
       duration.seconds(2),
     )
   let assert Ok(_) =
     pool.render(
       name,
-      make_frame(json.object([#("component", json.string("C3"))])),
+      json.object([#("component", json.string("C3"))]),
       duration.seconds(2),
     )
 }
@@ -157,7 +148,7 @@ pub fn pool_stop_test() {
   let assert Ok(_) =
     pool.render(
       name,
-      make_frame(json.object([#("component", json.string("Test"))])),
+      json.object([#("component", json.string("Test"))]),
       duration.seconds(1),
     )
 
@@ -166,7 +157,7 @@ pub fn pool_stop_test() {
   let assert Error(pool.NotStarted) =
     pool.render(
       name,
-      make_frame(json.object([#("component", json.string("Test"))])),
+      json.object([#("component", json.string("Test"))]),
       duration.milliseconds(50),
     )
 }
@@ -181,7 +172,7 @@ pub fn render_pool_saturation_test() {
       let result =
         pool.render(
           name,
-          make_frame(json.object([#("component", json.string("Saturated"))])),
+          json.object([#("component", json.string("Saturated"))]),
           duration.milliseconds(200),
         )
       process.send(result_subject, result)
@@ -192,7 +183,7 @@ pub fn render_pool_saturation_test() {
   let assert Error(pool.Timeout) =
     pool.render(
       name,
-      make_frame(json.object([#("component", json.string("Fast"))])),
+      json.object([#("component", json.string("Fast"))]),
       duration.milliseconds(30),
     )
 
@@ -205,7 +196,7 @@ pub fn render_large_valid_payload_test() {
   let assert Ok(page) =
     pool.render(
       name,
-      make_frame(json.object([#("component", json.string("Large"))])),
+      json.object([#("component", json.string("Large"))]),
       duration.seconds(60),
     )
 
@@ -215,12 +206,12 @@ pub fn render_large_valid_payload_test() {
 pub fn crashed_worker_not_reused_test() {
   use name <- utils.with_pool("test/fixtures/crash.js", 1)
 
-  let frame = make_frame(json.object([#("component", json.string("Test"))]))
+  let page_data = json.object([#("component", json.string("Test"))])
 
   let assert Error(pool.Worker(worker.Crashed)) =
-    pool.render(name, frame, duration.milliseconds(500))
+    pool.render(name, page_data, duration.milliseconds(500))
 
-  let result = pool.render(name, frame, duration.milliseconds(500))
+  let result = pool.render(name, page_data, duration.milliseconds(500))
   case result {
     Error(pool.Timeout) -> Nil
     Error(pool.Worker(worker.Crashed)) -> Nil
@@ -248,7 +239,7 @@ pub fn render_unicode_props_test() {
     ])
 
   let assert Ok(page) =
-    pool.render(name, make_frame(page_data), duration.seconds(2))
+    pool.render(name, page_data, duration.seconds(2))
 
   assert string.contains(page.body, "🎉🚀")
   assert string.contains(page.body, "你好世界")
@@ -261,7 +252,7 @@ pub fn pool_stop_kills_all_workers_test() {
   let assert Ok(_) =
     pool.render(
       name,
-      make_frame(json.object([#("component", json.string("Test"))])),
+      json.object([#("component", json.string("Test"))]),
       duration.seconds(1),
     )
 
@@ -270,7 +261,7 @@ pub fn pool_stop_kills_all_workers_test() {
   let assert Error(pool.NotStarted) =
     pool.render(
       name,
-      make_frame(json.object([#("component", json.string("Test"))])),
+      json.object([#("component", json.string("Test"))]),
       duration.milliseconds(50),
     )
 }
@@ -283,7 +274,7 @@ pub fn pool_recovers_worker_on_client_crash_test() {
       let _ =
         pool.render(
           name,
-          make_frame(json.object([#("component", json.string("Slow"))])),
+          json.object([#("component", json.string("Slow"))]),
           duration.seconds(5),
         )
       Nil
@@ -296,7 +287,7 @@ pub fn pool_recovers_worker_on_client_crash_test() {
   let assert Ok(_) =
     pool.render(
       name,
-      make_frame(json.object([#("component", json.string("Test2"))])),
+      json.object([#("component", json.string("Test2"))]),
       duration.seconds(2),
     )
 }
@@ -311,7 +302,7 @@ pub fn pool_handles_waiting_client_crash_test() {
       let result =
         pool.render(
           name,
-          make_frame(json.object([#("component", json.string("Slow"))])),
+          json.object([#("component", json.string("Slow"))]),
           duration.milliseconds(200),
         )
       process.send(result_subject, result)
@@ -322,7 +313,7 @@ pub fn pool_handles_waiting_client_crash_test() {
   let assert Error(pool.Timeout) =
     pool.render(
       name,
-      make_frame(json.object([#("component", json.string("Test"))])),
+      json.object([#("component", json.string("Test"))]),
       duration.milliseconds(30),
     )
 
@@ -330,7 +321,7 @@ pub fn pool_handles_waiting_client_crash_test() {
   let assert Ok(_) =
     pool.render(
       name,
-      make_frame(json.object([#("component", json.string("Final"))])),
+      json.object([#("component", json.string("Final"))]),
       duration.seconds(2),
     )
 }
