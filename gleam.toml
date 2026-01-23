@@ -1,5 +1,5 @@
 name = "inertia_wisp_ssr"
-version = "0.1.0"
+version = "1.0.0"
 description = "Server-side rendering support for inertia_wisp"
 licences = ["MIT"]
 repository = { type = "github", user = "jtdowney", repo = "inertia_wisp_ssr" }
