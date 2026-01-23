@@ -2,6 +2,9 @@ import gleam/erlang/process
 import gleam/option.{type Option, None}
 import inertia_wisp/ssr/internal/pool
 
+@external(erlang, "inertia_wisp_ssr_test_ffi", "suppress_logger")
+pub fn suppress_logger() -> Nil
+
 pub fn with_pool(
   module_path: String,
   pool_size: Int,
