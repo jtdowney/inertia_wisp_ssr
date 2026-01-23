@@ -14,7 +14,7 @@ pub fn main() {
   let assert Ok(priv) = wisp.priv_directory("hello_react")
   let static_directory = priv <> "/static"
 
-  let config = ssr.default_config()
+  let config = ssr.default_config("hello_react")
   let assert Ok(_) =
     supervisor.new(supervisor.OneForOne)
     |> supervisor.add(ssr.supervised(config))

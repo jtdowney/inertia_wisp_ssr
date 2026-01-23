@@ -25,4 +25,8 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
       - run: gleam deps download
+      - run: cd ssr_server && gleam deps download
+      - run: cd ssr_server && gleam run -m esgleam/install
+      - run: cd ssr_server && gleam build
+      - run: cd ssr_server && gleam run -m build
       - run: gleam test

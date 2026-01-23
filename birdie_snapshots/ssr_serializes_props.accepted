@@ -1,0 +1,7 @@
+---
+version: 1.5.3
+title: ssr serializes props
+file: ./test/integration_test.gleam
+test_name: ssr_serializes_props_test
+---
+<div id="app">{"name":"Alice","age":30,"active":true}</div>
