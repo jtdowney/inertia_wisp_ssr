@@ -18,6 +18,6 @@ export default defineConfig(({ isSsrBuild }) => ({
         },
   },
   ssr: {
-    noExternal: ["@inertiajs/react"],
+    noExternal: false,
   },
 }));

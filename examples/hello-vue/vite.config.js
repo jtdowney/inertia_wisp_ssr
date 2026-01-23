@@ -18,6 +18,6 @@ export default defineConfig(({ isSsrBuild }) => ({
         },
   },
   ssr: {
-    noExternal: ["@inertiajs/vue3"],
+    noExternal: false,
   },
 }));
