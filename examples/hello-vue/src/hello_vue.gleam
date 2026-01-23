@@ -25,7 +25,7 @@ pub fn main() {
     |> supervisor.start
 
   let assert Ok(manifest) = vite.load_manifest(static_directory)
-  let layout = ssr.make_layout(config)
+  let layout = ssr.layout(config, _)
   let ctx =
     web.Context(
       static_directory: static_directory,

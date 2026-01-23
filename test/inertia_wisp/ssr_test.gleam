@@ -102,8 +102,8 @@ pub fn csr_fallback_empty_head_test() {
   assert string.contains(result, "head_count:[]")
 }
 
-pub fn make_layout_creates_reusable_closure_test() {
-  let name = process.new_name("ssr_test_make_layout")
+pub fn layout_partial_application_creates_reusable_closure_test() {
+  let name = process.new_name("ssr_test_partial_application")
   let assert Ok(_) = pool.start(name, "test/fixtures/ssr.js", None, 1)
 
   let config =
@@ -114,7 +114,8 @@ pub fn make_layout_creates_reusable_closure_test() {
       module_path: "test/fixtures/ssr.js",
     )
 
-  let layout_factory = ssr.make_layout(config)
+  // Use function hole syntax for partial application
+  let layout_factory = ssr.layout(config, _)
 
   let template1 = fn(_head, body) { "T1:" <> body }
   let template2 = fn(_head, body) { "T2:" <> body }

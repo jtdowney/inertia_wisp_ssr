@@ -75,7 +75,7 @@ fn my_layout(head: List(String), body: String) -> String {
 //   ..ssr.default_config(),
 //   module_path: ssr.priv_path("my_app", "ssr/ssr.js"),
 // )
-// let layout = ssr.make_layout(config)
+// let layout = ssr.layout(config, _)
 // Then pass `layout` through your context to handlers.
 
 pub fn handle_request(req: Request, layout) -> Response {
@@ -188,7 +188,7 @@ supervisor.new(supervisor.OneForOne)
 |> supervisor.start
 
 // Create layout factory with custom config
-let layout = ssr.make_layout(config)
+let layout = ssr.layout(config, _)
 
 // Use in handlers
 |> inertia.response(200, layout(my_template))
@@ -210,7 +210,7 @@ let layout = ssr.make_layout(config)
 
 ### SSR Flow
 
-1. Your handler calls `inertia.response()` with `layout(template)` from `ssr.make_layout(config)`
+1. Your handler calls `inertia.response()` with `layout(template)` from `ssr.layout(config, _)`
 2. The SSR layer attempts to render the page using Node.js:
    - Serializes the Inertia page data to JSON
    - Calls your `ssr.js` `render()` function via the Node.js process pool
