@@ -11,9 +11,8 @@ build-ssr-server:
     cd ssr_server && gleam run -m build
 
 # Run all tests
-test:
+test: build-ssr-server
     gleam test
-    cd ssr_server && gleam test
 
 # Clean build artifacts
 clean:
@@ -23,8 +22,8 @@ clean:
 
 # Format all code
 fmt:
-    gleam format .
-    cd ssr_server && gleam format .
+    gleam format
+    cd ssr_server && gleam format
 
 publish: build-ssr-server
     gleam publish

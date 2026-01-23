@@ -6,7 +6,7 @@ import {
   RenderError$NoRenderExport,
   RenderError$RenderFailed,
   RenderedPage$RenderedPage,
-} from "./ssr_server/render.mjs";
+} from "./ssr_server.mjs";
 
 function clearModule(moduleId, visited) {
   if (!moduleId || visited.has(moduleId)) {

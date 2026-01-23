@@ -285,7 +285,10 @@ fn handle_worker_message(
     }
 
     PortExit(_code) -> {
-      fail_pending_from_state(WorkerState(..state, process_alive: False), Crashed)
+      fail_pending_from_state(
+        WorkerState(..state, process_alive: False),
+        Crashed,
+      )
       actor.stop()
     }
   }
