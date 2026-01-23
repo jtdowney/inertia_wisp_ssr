@@ -1,11 +1,3 @@
-/// Integration tests that verify the full SSR flow works with per-worker TCP listeners.
-///
-/// These tests exercise the complete path:
-/// 1. Each worker starts its own glisten TCP listener
-/// 2. Workers spawn Node.js running priv/ssr_server.js
-/// 3. Node connects directly to its worker's listener
-/// 4. Communication uses netstring-framed JSON
-/// 5. Responses are properly parsed and returned to the caller
 import birdie
 import gleam/json
 import gleam/string
@@ -14,7 +6,6 @@ import inertia_wisp/ssr/internal/pool
 import inertia_wisp/ssr/internal/protocol.{Page}
 import utils
 
-/// Test the full SSR render flow using the test_render.js fixture
 pub fn full_ssr_render_test() {
   use pool_name <- utils.with_pool("test/fixtures/test_render.js", 1)
 
@@ -34,7 +25,6 @@ pub fn full_ssr_render_test() {
   assert string.contains(body, "id=\"app\"")
 }
 
-/// Test that SSR properly handles component name in the rendered output
 pub fn ssr_renders_component_name_test() {
   use pool_name <- utils.with_pool("test/fixtures/test_render.js", 1)
 
@@ -50,7 +40,6 @@ pub fn ssr_renders_component_name_test() {
   assert head == ["<title>Dashboard</title>"]
 }
 
-/// Test that props are properly serialized and included in the body
 pub fn ssr_serializes_props_test() {
   use pool_name <- utils.with_pool("test/fixtures/test_render.js", 1)
 
@@ -74,7 +63,6 @@ pub fn ssr_serializes_props_test() {
   |> birdie.snap("ssr serializes props")
 }
 
-/// Test multiple sequential renders work correctly
 pub fn ssr_multiple_renders_test() {
   use pool_name <- utils.with_pool("test/fixtures/test_render.js", 1)
 
