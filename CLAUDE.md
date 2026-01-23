@@ -31,7 +31,7 @@ inertia.response() with layout(template) from make_layout(config)
 
 **Key Modules:**
 
-- `src/inertia_wisp/ssr.gleam` — Public API: `SsrConfig`, `default_config()`, `supervised()`, `layout()`, `make_layout()`
+- `src/inertia_wisp/ssr.gleam` — Public API: `SsrConfig`, `default_config(app_name)`, `supervised()`, `layout()`, `make_layout()`
 - `src/inertia_wisp/ssr/internal/pool.gleam` — Pure Gleam pool manager and pool actor using OTP
 - `src/inertia_wisp/ssr/internal/listener.gleam` — TCP server (glisten) that accepts Node.js connections and routes data to workers
 - `src/inertia_wisp/ssr/internal/worker.gleam` — Worker actor that spawns and manages a Node.js process

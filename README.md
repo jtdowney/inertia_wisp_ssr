@@ -24,7 +24,7 @@ import gleam/otp/static_supervisor as supervisor
 import inertia_wisp/ssr
 
 pub fn start_app() {
-  let config = ssr.default_config()
+  let config = ssr.default_config("my_app")
 
   supervisor.new(supervisor.OneForOne)
   |> supervisor.add(ssr.supervised(config))
@@ -58,7 +58,7 @@ fn my_layout(head: List(String), body: String) -> String {
 }
 
 // In your main(), create the config and layout factory once at startup:
-// let config = ssr.default_config()
+// let config = ssr.default_config("my_app")
 // let layout = ssr.make_layout(config)
 // Then pass `layout` through your context to handlers.
 
@@ -146,7 +146,8 @@ import gleam/time/duration
 import inertia_wisp/ssr.{SsrConfig}
 
 let config = SsrConfig(
-  module_path: "priv/ssr/ssr.js",         // Path to JS bundle
+  app_name: "my_app",                     // OTP application name for priv directory
+  module_path: "ssr/ssr.js",              // Path to JS bundle (relative to priv, or absolute)
   name: process.new_name("my_app_ssr"),   // Pool process name
   node_path: None,                        // Use system Node.js (or Some("/path/to/node"))
   pool_size: 8,                           // Number of workers
@@ -167,7 +168,8 @@ let layout = ssr.make_layout(config)
 
 ### Options
 
-- **`module_path`** - Path to your SSR JavaScript bundle (default: `"priv/ssr/ssr.js"`)
+- **`app_name`** - OTP application name, used to resolve the priv directory at runtime (required)
+- **`module_path`** - Path to your SSR JavaScript bundle; relative paths are resolved from priv, absolute paths (starting with `/`) are used as-is (default: `"ssr/ssr.js"`)
 - **`name`** - Pool name for process registration; create with `process.new_name()` (default: `process.new_name("inertia_wisp_ssr")`)
 - **`node_path`** - Custom Node.js executable path, or `None` to use system PATH (default: `None`)
 - **`pool_size`** - Number of persistent Node.js worker processes (default: `4`)
@@ -197,9 +199,9 @@ This ensures your app remains available even if SSR breaks.
 
 ## Requirements
 
-- **Gleam 1.13+** (compiles to Erlang)
+- **Gleam 1.14+** (compiles to Erlang)
 - **OTP 27+**
-- **Node.js 20+** with your framework's SSR dependencies installed
+- **Node.js 22+** with your framework's SSR dependencies installed
 
 > [!IMPORTANT]
 > Set `NODE_ENV=production` so the SSR script is cached in memory. Without this, page rendering times will be very slow.
