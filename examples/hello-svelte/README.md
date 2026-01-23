@@ -51,6 +51,6 @@ This example uses Svelte 5's runes syntax:
 ## How It Works
 
 1. Gleam app starts the Node.js SSR pool via `inertia_wisp_ssr.child_spec(config)`
-2. Routes call `inertia.response()` with `layout(web.layout(ctx))` from `inertia_wisp_ssr.make_layout(config)`
+2. Routes call `inertia.response()` with `layout(web.layout(ctx))` from `ssr.layout(config, _)`
 3. SSR pool calls `render(pageJson)` in the JS bundle
 4. Response includes server-rendered HTML with hydration data

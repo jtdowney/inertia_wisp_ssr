@@ -25,7 +25,7 @@ import logging
 pub type PageLayout =
   fn(List(String), String) -> String
 
-/// Layout handler function returned by `layout()` and `make_layout()`.
+/// Layout handler function returned by `layout()`.
 /// Takes the component name and page data JSON, returns rendered HTML.
 pub type LayoutHandler =
   fn(String, Json) -> String
@@ -186,21 +186,20 @@ pub fn layout(
 
 /// Create a reusable layout function with SSR configuration baked in.
 ///
-/// Call this once at startup and reuse the returned function in handlers.
+/// **Deprecated**: Use `ssr.layout(config, _)` instead for the same behavior
+/// with less indirection.
 ///
 /// ## Example
 ///
 /// ```gleam
-/// // At startup
-/// let config = SsrConfig(
-///   ..ssr.default_config(),
-///   module_path: ssr.priv_path("my_app", "ssr/ssr.js"),
-/// )
-/// let layout = ssr.make_layout(config)
+/// // Preferred: use function hole syntax
+/// |> inertia.response(200, ssr.layout(config, _)(my_template))
 ///
-/// // In handler
+/// // Or with partial application stored in context:
+/// let layout = ssr.layout(config, _)
 /// |> inertia.response(200, layout(my_template))
 /// ```
+@deprecated("Use `ssr.layout(config, _)` instead")
 pub fn make_layout(
   config: SsrConfig,
 ) -> fn(PageLayout) -> LayoutHandler {

@@ -19,7 +19,7 @@ gleam docs build         # Generate documentation
 **SSR Flow:**
 
 ```
-inertia.response() with layout(template) from make_layout(config)
+inertia.response() with layout(template) from ssr.layout(config, _)
     → pool manager checks out a worker (OTP actor)
     → worker spawns Node.js running priv/ssr_server.cjs
     → Node.js connects to TCP server
@@ -31,7 +31,7 @@ inertia.response() with layout(template) from make_layout(config)
 
 **Key Modules:**
 
-- `src/inertia_wisp/ssr.gleam` — Public API: `SsrConfig`, `priv_path()`, `default_config()`, `supervised()`, `layout()`, `make_layout()`
+- `src/inertia_wisp/ssr.gleam` — Public API: `SsrConfig`, `priv_path()`, `default_config()`, `supervised()`, `layout()`
 - `src/inertia_wisp/ssr/internal/pool.gleam` — Pure Gleam pool manager and pool actor using OTP
 - `src/inertia_wisp/ssr/internal/listener.gleam` — TCP server (glisten) that accepts Node.js connections and routes data to workers
 - `src/inertia_wisp/ssr/internal/worker.gleam` — Worker actor that spawns and manages a Node.js process
