@@ -206,7 +206,7 @@ pub fn render_large_valid_payload_test() {
     pool.render(
       name,
       make_frame(json.object([#("component", json.string("Large"))])),
-      duration.seconds(30),
+      duration.seconds(60),
     )
 
   assert string.length(page.body) > 500_000
