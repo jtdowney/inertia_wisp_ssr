@@ -2,8 +2,8 @@ import birdie
 import gleam/bit_array
 import gleam/bytes_tree
 import gleam/json
-import inertia_wisp/ssr/internal/netstring
 import inertia_wisp/ssr/internal/protocol
+import netstring
 
 pub fn encode_request_netstring_test() {
   let page_data =
@@ -73,7 +73,7 @@ pub fn decode_response_success_test() {
       #("body", json.string("<div>Hello</div>")),
     ])
     |> json.to_string
-  let frame = netstring.encode(json_str) |> bit_array.from_string
+  let frame = netstring.encode(bit_array.from_string(json_str))
   let assert Ok(#(Ok(page), _remaining)) = protocol.decode_response(frame)
   assert page.head == ["<title>Test</title>"]
   assert page.body == "<div>Hello</div>"
@@ -86,7 +86,7 @@ pub fn decode_response_error_test() {
       #("error", json.string("Component not found")),
     ])
     |> json.to_string
-  let frame = netstring.encode(json_str) |> bit_array.from_string
+  let frame = netstring.encode(bit_array.from_string(json_str))
   let assert Ok(#(Error(protocol.RenderError(msg)), _remaining)) =
     protocol.decode_response(frame)
   assert msg == "Component not found"
@@ -105,7 +105,7 @@ pub fn decode_response_empty_head_test() {
       #("body", json.string("body")),
     ])
     |> json.to_string
-  let frame = netstring.encode(json_str) |> bit_array.from_string
+  let frame = netstring.encode(bit_array.from_string(json_str))
   let assert Ok(#(Ok(page), _remaining)) = protocol.decode_response(frame)
   assert page.head == []
   assert page.body == "body"
@@ -127,7 +127,10 @@ pub fn decode_response_with_remaining_test() {
     ])
     |> json.to_string
   let frame =
-    bit_array.from_string(netstring.encode(json1) <> netstring.encode(json2))
+    bit_array.concat([
+      netstring.encode(bit_array.from_string(json1)),
+      netstring.encode(bit_array.from_string(json2)),
+    ])
 
   let assert Ok(#(Ok(first), remaining)) = protocol.decode_response(frame)
   assert first.body == "first"

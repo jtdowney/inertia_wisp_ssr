@@ -1,3 +1,4 @@
+import gleam/bit_array
 import gleam/bytes_tree.{type BytesTree}
 import gleam/dict.{type Dict}
 import gleam/erlang/process.{type Subject}
@@ -8,7 +9,7 @@ import gleam/result
 import gleam/string
 import glisten.{type Connection, type Message, ConnectionInfo, Packet, User}
 import glisten/internal/handler
-import inertia_wisp/ssr/internal/netstring
+import netstring
 
 pub type ListenerMessage {
   RegisterWorker(id: Int, worker: Subject(WorkerMessage), reply: Subject(Nil))
@@ -178,7 +179,8 @@ fn handle_awaiting_id(
         Error(netstring.NeedMore) ->
           glisten.continue(AwaitingId(buffer: new_buffer, listener:))
         Error(netstring.InvalidFormat(_)) -> glisten.stop()
-        Ok(#(id_str, _remaining)) ->
+        Ok(#(data, _remaining)) -> {
+          let id_str = bit_array.to_string(data) |> result.unwrap("")
           case int.parse(id_str) {
             Error(Nil) -> glisten.stop()
             Ok(worker_id) -> {
@@ -186,6 +188,7 @@ fn handle_awaiting_id(
               glisten.continue(Identified(worker_id, listener))
             }
           }
+        }
       }
     }
   }

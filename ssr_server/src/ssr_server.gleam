@@ -9,8 +9,7 @@ import gleam/javascript/promise.{type Promise}
 import gleam/json.{type Json}
 import gleam/option.{type Option, None, Some}
 import gleam/result
-import gleam/string
-import inertia_wisp/ssr/internal/netstring
+import netstring
 import node_socket_client.{type Event, type SocketClient}
 
 type State {
@@ -82,7 +81,13 @@ fn start_client(port: Int, module_path: String, worker_id: Int) -> Nil {
           buffer: <<>>,
           socket: None,
         )
-      let _ = node_socket_client.connect("127.0.0.1", port, state, handle_event)
+      let _ =
+        node_socket_client.connect_binary(
+          "127.0.0.1",
+          port,
+          state,
+          handle_event,
+        )
       Nil
     }
     Error(err) -> {
@@ -97,21 +102,33 @@ fn start_client(port: Int, module_path: String, worker_id: Int) -> Nil {
 fn handle_event(
   state: State,
   socket: SocketClient,
-  event: Event(String),
+  event: Event(BitArray),
 ) -> State {
   case event {
     node_socket_client.ConnectEvent -> {
       debug("Connected to TCP server")
-      let id_frame = netstring.encode(int.to_string(state.worker_id))
-      let _ = node_socket_client.write(socket, id_frame)
+      let id_frame =
+        state.worker_id
+        |> int.to_string
+        |> bit_array.from_string
+        |> netstring.encode
+      let _ = node_socket_client.write_bits(socket, id_frame)
       State(..state, socket: Some(socket))
     }
 
     node_socket_client.DataEvent(data) -> {
-      debug("Received data, length=" <> int.to_string(string.length(data)))
-      let data_bits = bit_array.from_string(data)
-      let new_buffer = bit_array.append(state.buffer, data_bits)
-      process_buffer(state, socket, new_buffer)
+      debug(
+        "Received data, length=" <> int.to_string(bit_array.byte_size(data)),
+      )
+      let new_buffer = bit_array.append(state.buffer, data)
+      case process_buffer(state, socket, new_buffer) {
+        Ok(state) -> state
+        Error(_) -> {
+          debug("Error processing buffer, closing connection")
+          exit(1)
+          state
+        }
+      }
     }
 
     node_socket_client.CloseEvent(_had_error) -> {
@@ -131,17 +148,22 @@ fn handle_event(
   }
 }
 
-fn process_buffer(state: State, socket: SocketClient, buffer: BitArray) -> State {
+fn process_buffer(
+  state: State,
+  socket: SocketClient,
+  buffer: BitArray,
+) -> Result(State, Nil) {
   case netstring.decode(buffer) {
-    Ok(#(json_str, remaining)) -> {
+    Ok(#(data, remaining)) -> {
+      use json_str <- result.try(bit_array.to_string(data))
       handle_request(state, socket, json_str)
       process_buffer(state, socket, remaining)
     }
-    Error(netstring.NeedMore) -> State(..state, buffer: buffer)
+    Error(netstring.NeedMore) -> Ok(State(..state, buffer: buffer))
     Error(netstring.InvalidFormat(msg)) -> {
       io.println_error("Invalid frame format: " <> msg)
       exit(1)
-      state
+      Ok(state)
     }
   }
 }
@@ -180,9 +202,12 @@ fn handle_request(state: State, socket: SocketClient, json_str: String) -> Nil {
 fn send_response(socket: SocketClient, response: Json) -> Nil {
   let frame =
     json.to_string(response)
+    |> bit_array.from_string
     |> netstring.encode
-  debug("Sending response, length=" <> int.to_string(string.length(frame)))
-  let _ = node_socket_client.write(socket, frame)
+  debug(
+    "Sending response, length=" <> int.to_string(bit_array.byte_size(frame)),
+  )
+  let _ = node_socket_client.write_bits(socket, frame)
 
   Nil
 }

@@ -13,8 +13,8 @@ import gleam/string
 import gleam/time/duration.{type Duration}
 import glisten/internal/handler
 import inertia_wisp/ssr/internal/listener
-import inertia_wisp/ssr/internal/netstring
 import inertia_wisp/ssr/internal/protocol.{type Page}
+import netstring
 
 pub type WorkerError {
   Timeout
