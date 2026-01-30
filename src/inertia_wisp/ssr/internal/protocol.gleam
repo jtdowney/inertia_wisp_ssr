@@ -1,8 +1,9 @@
+import gleam/bit_array
 import gleam/bytes_tree.{type BytesTree}
 import gleam/dynamic/decode
 import gleam/json.{type Json}
 import gleam/result
-import inertia_wisp/ssr/internal/netstring
+import netstring
 
 pub type Page {
   Page(head: List(String), body: String)
@@ -21,8 +22,8 @@ pub fn encode_request(page_data: Json) -> BytesTree {
 
 fn encode_frame(data: Json) -> BytesTree {
   json.to_string_tree(data)
-  |> netstring.encode_tree
   |> bytes_tree.from_string_tree
+  |> netstring.encode_tree
 }
 
 pub fn decode_response(
@@ -33,7 +34,11 @@ pub fn decode_response(
     |> result.map_error(NetstringError),
   )
 
-  let #(frame, rest) = decoded_frame
+  let #(data, rest) = decoded_frame
+  use frame <- result.try(
+    bit_array.to_string(data)
+    |> result.replace_error(InvalidJson("Failed to convert frame to string")),
+  )
   use decoded_result <- result.try(
     json.parse(frame, response_decoder())
     |> result.map_error(fn(err) { InvalidJson(json_error_to_string(err)) }),

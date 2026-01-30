@@ -4,11 +4,11 @@ target = "javascript"
 
 [dependencies]
 argv = ">= 1.0.2 and < 2.0.0"
-inertia_wisp_ssr = { path = ".." }
 envoy = ">= 1.1.0 and < 2.0.0"
 esgleam = ">= 1.0.0 and < 2.0.0"
 gleam_javascript = ">= 1.0.0 and < 2.0.0"
 gleam_json = ">= 3.1.0 and < 4.0.0"
 gleam_stdlib = ">= 0.44.0 and < 2.0.0"
-node_socket_client = ">= 1.0.0 and < 2.0.0"
+netstring = ">= 1.0.0 and < 2.0.0"
+node_socket_client = { git = "https://github.com/jtdowney/node-socket-client.git", ref = "add-binary-data" }
 simplifile = ">= 2.3.2 and < 3.0.0"
