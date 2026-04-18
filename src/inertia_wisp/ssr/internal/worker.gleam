@@ -197,20 +197,23 @@ fn start_node_process(
   worker_id: Int,
 ) -> Result(Process, WorkerError) {
   let builder = case node_path {
-    Some(path) -> child_process.new(path)
-    None -> child_process.new_with_path("node")
+    Some(path) -> child_process.from_file(path)
+    None -> child_process.from_name("node")
   }
+
+  let stdio_config =
+    stdio.stream(io.print)
+    |> stdio.capture_stderr(True)
+    |> stdio.on_exit(fn(code) {
+      process.send(worker_subject, PortExit(code))
+    })
 
   builder
   |> child_process.arg(script_path)
   |> child_process.arg(int.to_string(server_port))
   |> child_process.arg(module_path)
   |> child_process.arg(int.to_string(worker_id))
-  |> child_process.on_exit(fn(code) {
-    process.send(worker_subject, PortExit(code))
-  })
-  |> child_process.stdio(stdio.stream(io.print) |> stdio.capture_stderr)
-  |> child_process.spawn()
+  |> child_process.spawn(stdio: stdio_config)
   |> result.map_error(fn(err) { RenderFailed(string.inspect(err)) })
 }
 
