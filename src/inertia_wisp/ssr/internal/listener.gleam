@@ -61,7 +61,8 @@ pub fn start() -> Result(ListenerInfo, ListenerError) {
       )
       |> glisten.with_close(handle_close)
       |> glisten.bind("127.0.0.1")
-      |> glisten.start_with_listener_name(0, listener_name)
+      |> glisten.with_listener_name(listener_name)
+      |> glisten.start(0)
       |> result.map_error(fn(err) {
         "glisten start failed: " <> string.inspect(err)
       }),

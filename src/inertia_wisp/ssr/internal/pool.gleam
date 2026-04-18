@@ -197,19 +197,24 @@ fn create_initial_workers(
       worker_ids: dict.new(),
     )
 
-  list.range(1, config.size)
-  |> list.try_fold(empty_state, fn(state, _) {
-    let worker_id = state.next_worker_id
-    case start_worker_with_config(state, worker_id) {
-      Ok(worker) -> Ok(do_register_worker(state, worker, worker_id))
-      Error(err) -> {
-        list.each(state.all_workers, fn(w) {
-          process.send(w.pool_subject, worker.WorkerShutdown)
-        })
-        Error(err)
-      }
+  int.range(from: 0, to: config.size, with: Ok(empty_state), run: add_worker)
+}
+
+fn add_worker(
+  acc: Result(PoolState, WorkerError),
+  _index: Int,
+) -> Result(PoolState, WorkerError) {
+  use state <- result.try(acc)
+  let worker_id = state.next_worker_id
+  case start_worker_with_config(state, worker_id) {
+    Ok(worker) -> Ok(do_register_worker(state, worker, worker_id))
+    Error(err) -> {
+      list.each(state.all_workers, fn(w) {
+        process.send(w.pool_subject, worker.WorkerShutdown)
+      })
+      Error(err)
     }
-  })
+  }
 }
 
 fn start_worker_with_config(
