@@ -6,12 +6,12 @@ import gleam/erlang/process.{
 }
 import gleam/erlang/reference.{type Reference}
 import gleam/int
+import gleam/json.{type Json}
 import gleam/list
 import gleam/option.{type Option}
 import gleam/order
 import gleam/otp/actor
 import gleam/result
-import gleam/json.{type Json}
 import gleam/time/duration.{type Duration}
 import gleam/time/timestamp
 import inertia_wisp/ssr/internal/listener

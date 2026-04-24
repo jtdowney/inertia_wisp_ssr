@@ -204,9 +204,7 @@ fn start_node_process(
   let stdio_config =
     stdio.stream(io.print)
     |> stdio.capture_stderr(True)
-    |> stdio.on_exit(fn(code) {
-      process.send(worker_subject, PortExit(code))
-    })
+    |> stdio.on_exit(fn(code) { process.send(worker_subject, PortExit(code)) })
 
   builder
   |> child_process.arg(script_path)

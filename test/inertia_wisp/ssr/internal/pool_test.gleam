@@ -238,8 +238,7 @@ pub fn render_unicode_props_test() {
       ),
     ])
 
-  let assert Ok(page) =
-    pool.render(name, page_data, duration.seconds(2))
+  let assert Ok(page) = pool.render(name, page_data, duration.seconds(2))
 
   assert string.contains(page.body, "🎉🚀")
   assert string.contains(page.body, "你好世界")
