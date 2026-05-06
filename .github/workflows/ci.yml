@@ -13,7 +13,7 @@ jobs:
       matrix:
         otp: ["27", "28"]
         gleam: ["1.15", "1.16"]
-        node: ["22", "24"]
+        node: ["22", "24", "26"]
     steps:
       - uses: actions/checkout@v6
       - uses: erlef/setup-beam@v1
