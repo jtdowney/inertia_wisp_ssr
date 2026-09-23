@@ -1,9 +1,7 @@
-//// Server-side rendering support for Inertia.js applications.
+//// Server-side rendering for Inertia.js pages served by inertia_wisp.
 ////
-//// This module provides the public API for adding SSR to your Inertia
-//// handlers. It wraps your HTML template function to first attempt
-//// server-side rendering via Node.js, falling back to client-side
-//// rendering if SSR fails.
+//// Wraps your HTML template so each page is rendered by a pool of Node.js
+//// workers, falling back to client-side rendering when SSR fails.
 
 import gleam/erlang/application
 import gleam/erlang/process
@@ -19,31 +17,29 @@ import inertia_wisp/ssr/internal/pool
 import inertia_wisp/ssr/internal/protocol
 import logging
 
-/// Page layout function that receives SSR head elements and body content.
-/// - `head`: List of HTML strings for the `<head>` section (scripts, styles, meta tags)
-/// - `body`: The rendered HTML body content
+/// Your HTML template. Receives the `<head>` elements (title, meta, styles)
+/// and the rendered body HTML, and returns the full document.
 pub type PageLayout =
   fn(List(String), String) -> String
 
-/// Layout handler function returned by `layout()`.
-/// Takes the component name and page data JSON, returns rendered HTML.
+/// Layout returned by `layout()`, ready to pass to `inertia.response`.
 pub type LayoutHandler =
   fn(String, Json) -> String
 
-/// Type alias for pool names - a typed handle for pool lookup.
-/// Create pool names using `process.new_name()` at application startup.
+/// Name the SSR pool is registered under. Create one with
+/// `process.new_name()` at startup.
 pub type PoolName =
   pool.PoolName
 
-/// Configuration for the SSR pool and rendering behavior.
+/// Configuration for the SSR pool and rendering.
 ///
-/// ## Fields
+/// `module_path` should be absolute; use `priv_path` to build it. A
+/// `node_path` of `None` finds `node` on the system PATH. `timeout` is how
+/// long a render may take before falling back to client-side rendering.
 ///
-/// - `module_path`: Absolute path to the JavaScript SSR module (use `priv_path` to resolve)
-/// - `name`: Pool name for registration (default: uses default name)
-/// - `node_path`: Optional custom path to Node.js executable (default: None, uses system PATH)
-/// - `pool_size`: Number of persistent Node.js worker processes (default: 4)
-/// - `timeout`: Maximum time to wait for SSR rendering (default: 1 second)
+/// Pass the same config value to both `supervised` and `layout`. The pool is
+/// found by `name`, so a config with a different name renders every page
+/// client-side.
 pub type SsrConfig {
   SsrConfig(
     module_path: String,
@@ -54,20 +50,11 @@ pub type SsrConfig {
   )
 }
 
-/// Resolve a path relative to an OTP application's priv directory.
+/// Resolve a path inside an OTP application's priv directory.
 ///
-/// Call this at application startup to get the absolute path for `SsrConfig`.
-/// In Erlang releases, the priv directory location is unpredictable, so this
-/// function uses the OTP application system to resolve it correctly.
-///
-/// Falls back to `"priv/" <> path` if the application is not loaded.
-///
-/// ## Example
-///
-/// ```gleam
-/// let module_path = ssr.priv_path("my_app", "ssr/ssr.js")
-/// let config = SsrConfig(..ssr.default_config(), module_path: module_path)
-/// ```
+/// Use this for `module_path` so the bundle is found in Erlang releases,
+/// where priv is not relative to the working directory. Falls back to
+/// `"priv/" <> path` if the application is not loaded.
 pub fn priv_path(app_name: String, path: String) -> String {
   case application.priv_directory(app_name) {
     Ok(priv) -> priv <> "/" <> path
@@ -75,23 +62,18 @@ pub fn priv_path(app_name: String, path: String) -> String {
   }
 }
 
-/// Create a default SSR configuration.
+/// Default configuration: `priv/ssr/ssr.js` relative to the working
+/// directory, 4 workers, a 1 second timeout, and the system `node`.
 ///
-/// Uses a default pool name, "priv/ssr/ssr.js" as module path, 4 workers,
-/// and 1s timeout. For production releases, use `priv_path()` to resolve
-/// the module path correctly.
-///
-/// ## Example
+/// Each call creates a new pool name, so call it once and share the result
+/// between `supervised` and `layout`.
 ///
 /// ```gleam
-/// let config = SsrConfig(
+/// let config = ssr.SsrConfig(
 ///   ..ssr.default_config(),
 ///   module_path: ssr.priv_path("my_app", "ssr/ssr.js"),
 /// )
 /// ```
-///
-/// **Note**: This function creates a new pool name each time it's called.
-/// For multiple pools, create specific names with `process.new_name()` at startup.
 pub fn default_config() -> SsrConfig {
   SsrConfig(
     module_path: "priv/ssr/ssr.js",
@@ -102,26 +84,13 @@ pub fn default_config() -> SsrConfig {
   )
 }
 
-/// Get a child specification for adding the SSR pool to your supervision tree.
-///
-/// The pool is registered under the name in `config`, allowing `make_layout()`
-/// to look it up automatically.
-///
-/// ## Example
+/// Child specification for the SSR pool. The pool registers under
+/// `config.name`, which is how `layout` finds it.
 ///
 /// ```gleam
-/// import gleam/otp/static_supervisor as supervisor
-/// import inertia_wisp/ssr
-///
-/// pub fn start_app() {
-///   let config = SsrConfig(
-///     ..ssr.default_config(),
-///     module_path: ssr.priv_path("my_app", "ssr/ssr.js"),
-///   )
-///   supervisor.new(supervisor.OneForOne)
-///   |> supervisor.add(ssr.supervised(config))
-///   |> supervisor.start
-/// }
+/// supervisor.new(supervisor.OneForOne)
+/// |> supervisor.add(ssr.supervised(config))
+/// |> supervisor.start
 /// ```
 pub fn supervised(config: SsrConfig) -> ChildSpecification(Nil) {
   supervision.worker(fn() {
@@ -136,15 +105,12 @@ pub fn supervised(config: SsrConfig) -> ChildSpecification(Nil) {
   })
 }
 
-/// Wrap a template function to enable server-side rendering.
+/// Wrap a template so pages are rendered on the server.
 ///
-/// The template function receives:
-/// - `head`: List of HTML strings for the `<head>` section
-/// - `body`: The rendered HTML body content
+/// If the render fails or times out, logs a warning and calls the template
+/// with an empty head and a `<div id="app" data-page="...">` body so the
+/// client can render the page instead.
 ///
-/// If SSR fails, this automatically falls back to client-side rendering.
-///
-/// ## Example
 ///
 /// ```gleam
 /// fn my_layout(head: List(String), body: String) -> String {
@@ -155,7 +121,7 @@ pub fn supervised(config: SsrConfig) -> ChildSpecification(Nil) {
 ///   <> "<script src='/app.js'></script></body></html>"
 /// }
 ///
-/// // In handler:
+/// // In a handler:
 /// |> inertia.response(200, ssr.layout(config, my_layout))
 /// ```
 pub fn layout(config: SsrConfig, template: PageLayout) -> LayoutHandler {
@@ -179,21 +145,7 @@ pub fn layout(config: SsrConfig, template: PageLayout) -> LayoutHandler {
   }
 }
 
-/// Create a reusable layout function with SSR configuration baked in.
-///
-/// **Deprecated**: Use `ssr.layout(config, _)` instead for the same behavior
-/// with less indirection.
-///
-/// ## Example
-///
-/// ```gleam
-/// // Preferred: use function hole syntax
-/// |> inertia.response(200, ssr.layout(config, _)(my_template))
-///
-/// // Or with partial application stored in context:
-/// let layout = ssr.layout(config, _)
-/// |> inertia.response(200, layout(my_template))
-/// ```
+/// Deprecated: use `ssr.layout(config, _)` instead.
 @deprecated("Use `ssr.layout(config, _)` instead")
 pub fn make_layout(config: SsrConfig) -> fn(PageLayout) -> LayoutHandler {
   fn(template: PageLayout) { layout(config, template) }

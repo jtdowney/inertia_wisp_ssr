@@ -7,7 +7,7 @@ Server-side rendering (SSR) support for [inertia_wisp](https://hex.pm/packages/i
 
 ## Installation
 
-Add `inertia_wisp_ssr` to your `gleam.toml`:
+Add the dependency:
 
 ```sh
 gleam add inertia_wisp_ssr
@@ -17,7 +17,8 @@ gleam add inertia_wisp_ssr
 
 ### 1. Add SSR to Your Supervision Tree
 
-Add the SSR supervisor to your application's supervision tree:
+Build the config once at startup, start the pool under your supervisor, and
+create the layout from the same config:
 
 ```gleam
 import gleam/otp/static_supervisor as supervisor
@@ -29,16 +30,26 @@ pub fn start_app() {
     module_path: ssr.priv_path("my_app", "ssr/ssr.js"),
   )
 
-  supervisor.new(supervisor.OneForOne)
-  |> supervisor.add(ssr.supervised(config))
-  // |> supervisor.add(other_children...)
-  |> supervisor.start
+  let assert Ok(_) =
+    supervisor.new(supervisor.OneForOne)
+    |> supervisor.add(ssr.supervised(config))
+    // |> supervisor.add(other_children...)
+    |> supervisor.start
+
+  // Pass `layout` to your handlers through your context.
+  let layout = ssr.layout(config, _)
 }
 ```
 
-### 2. Create an SSR-Enabled Layout
+> [!WARNING]
+> Use the same `config` value for `ssr.supervised` and `ssr.layout`. Each call
+> to `ssr.default_config()` creates a new pool name, and a layout built from a
+> different config can't find the pool, so every page falls back to
+> client-side rendering.
 
-Create a layout factory once at startup, then use it in your handlers. This example uses [nakai](https://hex.pm/packages/nakai) for type-safe HTML generation:
+### 2. Write Your HTML Template
+
+Your template receives the `<head>` elements and the rendered body. This example uses [nakai](https://hex.pm/packages/nakai) for type-safe HTML generation:
 
 ```gleam
 import gleam/list
@@ -70,15 +81,10 @@ fn my_layout(head: List(String), body: String) -> String {
   |> nakai.to_string
 }
 
-// In your main(), create the config and layout factory once at startup:
-// let config = SsrConfig(
-//   ..ssr.default_config(),
-//   module_path: ssr.priv_path("my_app", "ssr/ssr.js"),
-// )
-// let layout = ssr.layout(config, _)
-// Then pass `layout` through your context to handlers.
-
-pub fn handle_request(req: Request, layout) -> Response {
+pub fn handle_request(
+  req: Request,
+  layout: fn(ssr.PageLayout) -> ssr.LayoutHandler,
+) -> Response {
   req
   |> inertia.response_builder("Home")
   |> inertia.props(my_props, encode_props)
@@ -88,7 +94,7 @@ pub fn handle_request(req: Request, layout) -> Response {
 
 ### 3. Create Your SSR Bundle
 
-Create `priv/ssr/ssr.js` with a `render` function that returns `{ head, body }`:
+Create `priv/ssr/ssr.js` exporting a `render` function that returns `{ head, body }`, where `head` is an array of HTML strings and `body` is an HTML string:
 
 **React Example:**
 
@@ -196,15 +202,13 @@ let layout = ssr.layout(config, _)
 
 ### Options
 
-- **`module_path`** - Absolute path to your SSR JavaScript bundle; use `ssr.priv_path(app_name, path)` to resolve paths relative to your app's priv directory
-- **`name`** - Pool name for process registration; create with `process.new_name()` (default: `process.new_name("inertia_wisp_ssr")`)
-- **`node_path`** - Custom Node.js executable path, or `None` to use system PATH (default: `None`)
-- **`pool_size`** - Number of persistent Node.js worker processes (default: `4`)
-- **`timeout`** - Maximum time to wait for SSR rendering (default: `duration.seconds(1)`)
-
-### Helper Functions
-
-- **`ssr.priv_path(app_name, path)`** - Resolves a path relative to an OTP application's priv directory. Use this at startup to get absolute paths that work correctly in Erlang releases.
+| Field         | Default                                | Meaning                                                                                         |
+| ------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `module_path` | `"priv/ssr/ssr.js"`                    | Path to your SSR bundle. Use `ssr.priv_path(app_name, path)` so it resolves in Erlang releases. |
+| `name`        | `process.new_name("inertia_wisp_ssr")` | Name the pool registers under.                                                                  |
+| `node_path`   | `None`                                 | Path to the `node` executable. `None` uses the system PATH.                                     |
+| `pool_size`   | `4`                                    | Number of Node.js worker processes.                                                             |
+| `timeout`     | `duration.seconds(1)`                  | How long a render may take before falling back to client-side rendering.                        |
 
 ## How It Works
 
@@ -224,19 +228,17 @@ If SSR fails (Node.js error, timeout, or invalid response), the system automatic
 
 - Logs a warning with the failure reason
 - Generates a `<div id="app" data-page="...">` element with escaped JSON
-- Your JavaScript bundle hydrates on the client as normal
-
-This ensures your app remains available even if SSR breaks.
+- Your client bundle renders the page from `data-page` as it would without SSR
 
 ## Requirements
 
-- **Gleam 1.14+** (compiles to Erlang)
-- **OTP 27+**
-- **Node.js 22+** with your framework's SSR dependencies installed
+- Gleam 1.17+ on the Erlang target
+- OTP 27+
+- Node.js 22+ with your framework's SSR dependencies installed
 
 > [!IMPORTANT]
-> Set `NODE_ENV=production` so the SSR script is cached in memory. Without this, page rendering times will be very slow.
+> Set `NODE_ENV=production` in production. Without it, each worker reloads your SSR bundle from disk on every render. That picks up changes during development but makes rendering slow.
 
 ## Debugging
 
-- **`DEBUG_SSR=1`** - Enable verbose error logging in the SSR server
+Set `DEBUG_SSR=1` (or `DEBUG_SSR=true`) to have the Node.js workers print trace messages to stderr: module loads, connections, and request and response sizes.
